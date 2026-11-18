@@ -1,0 +1,17 @@
+{
+  "_comment": "手动登记的小工具清单（非平台全量）。发现新小工具时追加条目。字段：name 必填；category 建议填写；launchDate 上线日期（如知道）；noteId 挂载笔记 id（如知道）；source 来源说明；addedAt 登记日期。",
+  "items": [
+    {
+      "name": "candy-draw",
+      "category": "创意绘画",
+      "source": "本人作品",
+      "addedAt": "2026-11-18"
+    },
+    {
+      "name": "mood-journal",
+      "category": "情绪记录",
+      "source": "本人作品",
+      "addedAt": "2026-11-18"
+    }
+  ]
+}
