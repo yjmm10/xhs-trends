@@ -1,0 +1,29 @@
+{
+  "name": "xhs-trends",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "跟踪小红书 RedSkill 与小工具生态趋势的静态 Web 应用",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run aggregate && vite build",
+    "preview": "vite preview",
+    "collect": "node scripts/collect.mjs",
+    "aggregate": "node scripts/aggregate.mjs",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "echarts": "^5.5.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}

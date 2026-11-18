@@ -1,0 +1,34 @@
+{
+  "_comment": "赛道分类规则：按数组顺序匹配 skill_name + skill_description（大小写不敏感），首个命中即归属，每技能单一赛道。顺序即优先级：越具体的赛道放越前面。",
+  "rules": [
+    {
+      "category": "编程开发",
+      "keywords": ["programming", "code", "coding", "developer", "debug", "python", "javascript", "typescript", "react", "vue", "sql", "api", "github", "git", "docker", "部署", "编程", "代码", "开发", "脚本", "爬虫", "算法", "前端", "后端", "全栈", "程序员"]
+    },
+    {
+      "category": "金融理财",
+      "keywords": ["finance", "financial", "invest", "stock", "trading", "crypto", "budget", "理财", "投资", "股票", "基金", "记账", "财务", "储蓄", "保险", "证券", "交易"]
+    },
+    {
+      "category": "内容创作",
+      "keywords": ["writing", "writer", "copywriting", "blog", "content", "小红书", "公众号", "文案", "写作", "创作", "爆款", "笔记", "图文", "排版", "封面", "标题", "运营", "自媒体", "种草", "视频脚本", "短视频"]
+    },
+    {
+      "category": "职场办公",
+      "keywords": ["resume", "cv", "interview", "office", "meeting", "email", "ppt", "slide", "excel", "word", "简历", "面试", "职场", "办公", "会议", "邮件", "周报", "汇报", "述职", "offer", "加班", "同事", "领导", "谈判", "劳动合同"]
+    },
+    {
+      "category": "学习成长",
+      "keywords": ["learning", "study", "exam", "english", "language", "course", "tutorial", "学习", "成长", "考试", "考研", "英语", "留学", "论文", "课程", "教程", "背单词", "阅读", "读书", "笔记法", "知识管理", "备考"]
+    },
+    {
+      "category": "生活决策",
+      "keywords": ["astrology", "horoscope", "tarot", "fortune", "travel", "recipe", "cooking", "fitness", "health", "diet", "shopping", "星座", "占卜", "塔罗", "运势", "旅行", "旅游", "攻略", "菜谱", "做饭", "美食", "健身", "减肥", "健康", "养生", "穿搭", "美妆", "护肤", "购物", "比价", "装修", "搬家", "相亲", "恋爱", "情感"]
+    },
+    {
+      "category": "效率工具",
+      "keywords": ["productivity", "tool", "workflow", "automation", "summarize", "summary", "translate", "translation", "ocr", "pdf", "效率", "工具", "自动化", "工作流", "总结", "摘要", "翻译", "提取", "转换", "格式化", "清单", "待办", "日程", "时间管理", "笔记工具"]
+    }
+  ],
+  "fallback": "其它"
+}
