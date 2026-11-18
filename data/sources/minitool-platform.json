@@ -1,0 +1,46 @@
+{
+  "fetchedAt": "2026-11-18T14:37:01.341Z",
+  "env": "prod",
+  "categories": [
+    {
+      "code": "efficiency_life",
+      "name": "生活方式"
+    },
+    {
+      "code": "casual_game",
+      "name": "休闲玩法"
+    },
+    {
+      "code": "image_creation",
+      "name": "图像创作"
+    },
+    {
+      "code": "learning_education",
+      "name": "学习知识"
+    },
+    {
+      "code": "query_tool",
+      "name": "实用工具"
+    },
+    {
+      "code": "entertainment",
+      "name": "娱乐测试"
+    },
+    {
+      "code": "other",
+      "name": "其他"
+    }
+  ],
+  "ownApps": [
+    {
+      "appId": "6afd651b3894b30015ed95af",
+      "appName": "瞎画",
+      "slogan": "",
+      "category": "",
+      "version": "1.2.0",
+      "status": 2,
+      "statusText": "已发布",
+      "updateTime": ""
+    }
+  ]
+}

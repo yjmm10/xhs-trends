@@ -1,17 +1,4 @@
 {
-  "_comment": "手动登记的小工具清单（非平台全量）。发现新小工具时追加条目。字段：name 必填；category 建议填写；launchDate 上线日期（如知道）；noteId 挂载笔记 id（如知道）；source 来源说明；addedAt 登记日期。",
-  "items": [
-    {
-      "name": "candy-draw",
-      "category": "创意绘画",
-      "source": "本人作品",
-      "addedAt": "2026-11-18"
-    },
-    {
-      "name": "mood-journal",
-      "category": "情绪记录",
-      "source": "本人作品",
-      "addedAt": "2026-11-18"
-    }
-  ]
+  "_comment": "手动登记的小工具观察清单（非平台全量）。在小红书 App 内刷到其他作者的小工具时追加条目。字段：name 必填；category 建议从平台官方类目取（生活方式/休闲玩法/图像创作/学习知识/实用工具/娱乐测试/其他，可用 scripts/fetch-minitool-meta.mjs 刷新）；launchDate 上线日期（如知道）；noteId 挂载笔记 id（如知道）；source 来源说明；addedAt 登记日期。自己账号的作品不要在这里登记——用 scripts/fetch-minitool-meta.mjs 自动导入。",
+  "items": []
 }

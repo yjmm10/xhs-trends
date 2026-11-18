@@ -93,3 +93,18 @@
 ## 调度
 
 初期手动 `npm run collect`；后续可选 Windows 任务计划每日定时 + git commit（collect 幂等，重复调度安全）。
+
+---
+
+## 补记（2026-11-18 重构）：聚焦小工具
+
+用户确认：站点统计对象是**小红书最新功能「小工具」**，而非对 RedSkill 全量技能描述的内容分析（"全网内容"感）。
+
+变更：
+1. **首页改为小工具生态**：本账号作品状态（redapp CLI 只读查询，实测「瞎画」已发布）、平台官方 7 类目（redapp config 实测）、类目分布、手动观察清单。
+2. **删除** 赛道分布页与关键词洞察页（对 52k 技能 name+description 的分析）；分类/分词库代码保留为休眠能力（测试仍在）。
+3. **RedSkill 降级为二级板块**：仅官方四榜单 + 总量趋势（新增口径不变）。
+4. 新增 `scripts/fetch-minitool-meta.mjs`（`npm run minitools:fetch`）：redapp config/list/status → data/sources/minitool-platform.json。
+5. 站点更名「小红书小工具趋势」。
+
+数据事实：小工具无公开榜单端点（minitool-rank 等路径 502/404 已复核）；RedSkill 榜单 data.json 是唯一官方公开生态数据源。

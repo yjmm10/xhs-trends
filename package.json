@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "collect": "node scripts/collect.mjs",
     "aggregate": "node scripts/aggregate.mjs",
+    "minitools:fetch": "node scripts/fetch-minitool-meta.mjs",
     "test": "vitest run"
   },
   "dependencies": {

@@ -6,6 +6,15 @@ export interface SeriesPoint {
   newSinceLast: number | null;
 }
 
+export interface MinitoolsSummary {
+  watchlistCount: number;
+  ownAppCount: number;
+  publishedOwnCount: number;
+  platformCategoryCount: number;
+  categoryCounts: Record<string, number>;
+  platformFetchedAt: string | null;
+}
+
 export interface Overview {
   generatedAt: string;
   latestDate: string;
@@ -19,7 +28,7 @@ export interface Overview {
     todayRankCount: number;
     disappearedCount: number;
   };
-  minitools: { count: number; categoryCounts: Record<string, number> };
+  minitools: MinitoolsSummary;
 }
 
 export interface RankRow {
@@ -51,37 +60,6 @@ export interface Rankings {
   authorList: RankRow[];
 }
 
-export interface CategoryShare {
-  category: string;
-  count: number;
-  share: number;
-}
-
-export interface Categories {
-  date: string;
-  total: number;
-  current: CategoryShare[];
-  history: { date: string; counts: Record<string, number> }[];
-  fallback: string;
-  caveat: string;
-}
-
-export interface KeywordRow {
-  word: string;
-  count: number;
-  prevCount: number;
-  delta: number;
-  emerging: boolean;
-}
-
-export interface Keywords {
-  date: string;
-  prevDate: string | null;
-  top: KeywordRow[];
-  emerging: KeywordRow[];
-  caveat: string | null;
-}
-
 export interface MinitoolsItem {
   name: string;
   category?: string;
@@ -91,9 +69,28 @@ export interface MinitoolsItem {
   addedAt?: string;
 }
 
+export interface OwnApp {
+  appId: string;
+  appName: string;
+  slogan: string;
+  category: string;
+  version: string;
+  status: number;
+  statusText: string;
+  updateTime: string;
+}
+
+export interface PlatformCategory {
+  code: string;
+  name: string;
+}
+
 export interface Minitools {
   generatedAt: string;
   items: MinitoolsItem[];
+  ownApps: OwnApp[];
+  platformCategories: PlatformCategory[];
   categoryCounts: Record<string, number>;
+  platformFetchedAt: string | null;
   caveat: string;
 }
