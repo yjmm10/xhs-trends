@@ -17,7 +17,8 @@ const OFFICIAL_CATEGORY_CODES: Record<string, string> = {
 };
 
 function categoryName(app: { category: string }): string {
-  return OFFICIAL_CATEGORY_CODES[app.category] ?? app.category ?? '未分类';
+  if (!app.category) return '—';
+  return OFFICIAL_CATEGORY_CODES[app.category] ?? app.category;
 }
 
 export default function MinitoolsPage() {

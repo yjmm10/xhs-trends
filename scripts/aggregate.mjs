@@ -42,11 +42,13 @@ function writeDerived(name, data) {
 }
 
 function loadMinitoolSources() {
-  // 手动观察清单
+  // 手动观察清单 + 本账号作品类目注解（list 接口不返回类目）
   let items = [];
+  let ownAppCategories = {};
   try {
     const mt = JSON.parse(readFileSync(join(SOURCES_DIR, 'minitools.json'), 'utf-8'));
     items = Array.isArray(mt.items) ? mt.items : [];
+    ownAppCategories = mt.ownAppCategories && typeof mt.ownAppCategories === 'object' ? mt.ownAppCategories : {};
   } catch {
     console.warn('[aggregate] minitools.json 缺失或非法，按空处理');
   }
@@ -62,7 +64,7 @@ function loadMinitoolSources() {
   } else {
     console.warn('[aggregate] 无 minitool-platform.json（可运行 npm run minitools:fetch 获取官方类目与本账号作品）');
   }
-  return { items, platform };
+  return { items, ownAppCategories, platform };
 }
 
 function main() {
@@ -102,18 +104,21 @@ function main() {
   }
 
   // ── 小工具数据（核心板块）────────────────────────────────
-  const { items, platform } = loadMinitoolSources();
+  const { items, ownAppCategories, platform } = loadMinitoolSources();
   const minitoolCategoryCounts = {};
   for (const item of items) {
     const c = item.category || '未分类';
     minitoolCategoryCounts[c] = (minitoolCategoryCounts[c] ?? 0) + 1;
   }
-  // 本账号作品也计入类目分布（标注来源）
-  const ownApps = platform?.ownApps ?? [];
+  // 本账号作品：合并手动类目注解；无类目信息则不计入分布（避免“未分类”噪声）
+  const ownApps = (platform?.ownApps ?? []).map((app) => ({
+    ...app,
+    category: ownAppCategories[String(app.appId)] ?? app.category ?? '',
+  }));
   const platformCategories = platform?.categories ?? [];
   for (const app of ownApps) {
-    const c = app.category || '未分类';
-    minitoolCategoryCounts[c] = (minitoolCategoryCounts[c] ?? 0) + 1;
+    if (!app.category) continue;
+    minitoolCategoryCounts[app.category] = (minitoolCategoryCounts[app.category] ?? 0) + 1;
   }
   const publishedOwnCount = ownApps.filter((a) => a.statusText === '已发布').length;
 
