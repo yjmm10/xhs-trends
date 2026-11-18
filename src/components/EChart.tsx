@@ -4,17 +4,21 @@ import * as echarts from 'echarts';
 interface Props {
   option: echarts.EChartsOption;
   height?: number;
+  onReady?: (chart: echarts.ECharts) => void;
 }
 
 /** ECharts 包装组件：初始化 / 自适应尺寸 / option 更新 / 卸载释放 */
-export default function EChart({ option, height = 360 }: Props) {
+export default function EChart({ option, height = 360, onReady }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
 
   useEffect(() => {
     if (!ref.current) return;
     const chart = echarts.init(ref.current);
     chartRef.current = chart;
+    onReadyRef.current?.(chart);
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(ref.current);
     return () => {

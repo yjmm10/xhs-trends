@@ -49,6 +49,13 @@ npm run collect && git add data/snapshots && git commit -m "snapshot <date>"
 
 **GitHub Actions**（若托管在 GitHub）：`schedule: cron` 每日 collect + commit + build 部署。
 
+## 内容板块
+
+- **官方榜单总览**：Builder Hub REDSkill 四榜（当日新增 / 7天新增 / 使用人数 / 作者发布），含排名徽章（金银铜高亮）、升降/新上榜标记、数值比例条与站内搜索。
+- **收录量趋势**：官方 `dataDate` 时间序列，快照累积后自动成图。
+- **小工具榜（预留）**：官方在小红书 App 内设有「小工具」榜单专属页（每日 9:00 更新）。入口/接口待接入自动采集，当前展示预留空态；接通后将并入 collect 云端定时直采（与现有 cron 同批）。
+- **分享卡片**：纯 Canvas 自绘（非 DOM 截图），三种内容（趋势总览 / 单个技能 / 榜单 TOP10）× 四种平台尺寸（小红书 3:4、方形 1:1、横版 16:9、竖屏 9:16），支持下载 PNG / 复制剪贴板。
+
 ## 部署
 
 `dist/` 为纯静态产物（相对路径 base），GitHub Pages / Vercel / 任意静态托管直接可用。

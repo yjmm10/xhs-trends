@@ -35,7 +35,7 @@ function DeltaMark({ row }: { row: RankRow }) {
   return null;
 }
 
-/** 榜单表格：排名（含变化标记）、名称+描述、数值列；内置搜索过滤 */
+/** 榜单表格：排名徽章（前三名高亮）、名称+描述、数值列（含相对 TOP1 的比例条）；内置搜索过滤 */
 export default function RankTable({ rows, nameField, descField, valueColumns, emptyText }: RankTableProps) {
   const [query, setQuery] = useState('');
 
@@ -48,6 +48,14 @@ export default function RankTable({ rows, nameField, descField, valueColumns, em
       return name.toLowerCase().includes(q) || desc.toLowerCase().includes(q);
     });
   }, [rows, query, nameField, descField]);
+
+  const colMax = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const c of valueColumns) {
+      m[c.key] = Math.max(...rows.map((r) => Number(r[c.key] ?? 0)), 1);
+    }
+    return m;
+  }, [rows, valueColumns]);
 
   if (rows.length === 0) {
     return <div className="empty">{emptyText ?? '暂无数据'}</div>;
@@ -80,7 +88,9 @@ export default function RankTable({ rows, nameField, descField, valueColumns, em
           {filtered.map((row) => (
             <tr key={`${row[nameField]}-${row.rank}`}>
               <td className="rank-num">
-                {row.rank}
+                <span className={`rank-chip ${row.rank === 1 ? 'rank-1' : row.rank === 2 ? 'rank-2' : row.rank === 3 ? 'rank-3' : 'rank-other'}`}>
+                  {row.rank}
+                </span>
                 <DeltaMark row={row} />
               </td>
               <td>
@@ -91,11 +101,18 @@ export default function RankTable({ rows, nameField, descField, valueColumns, em
                   </div>
                 )}
               </td>
-              {valueColumns.map((c) => (
-                <td key={c.key} className="num-cell">
-                  {row[c.key] ?? '—'}
-                </td>
-              ))}
+              {valueColumns.map((c) => {
+                const v = row[c.key];
+                const pct = v === null || v === undefined ? 0 : Math.max(4, Math.min(100, (Number(v) / colMax[c.key]) * 100));
+                return (
+                  <td key={c.key} className="num-cell">
+                    <span className="val-wrap">
+                      <span className="val">{v ?? '—'}</span>
+                      {v !== null && v !== undefined && <span className="val-bar"><i style={{ width: `${pct}%` }} /></span>}
+                    </span>
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>
