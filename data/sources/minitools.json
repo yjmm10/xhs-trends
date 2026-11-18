@@ -1,7 +1,0 @@
-{
-  "_comment": "手动登记的小工具观察清单（非平台全量）。在小红书 App 内刷到其他作者的小工具时追加 items 条目。字段：name 必填；category 建议从平台官方类目取（生活方式/休闲玩法/图像创作/学习知识/实用工具/娱乐测试/其他）；launchDate 上线日期；noteId 挂载笔记 id；source 来源说明；addedAt 登记日期。ownAppCategories：list 接口不返回类目，可为本账号作品手动注解官方类目（key=appId）；不注解则该作品不计入类目分布。",
-  "items": [],
-  "ownAppCategories": {
-    "6afd651b3894b30015ed95af": "休闲玩法"
-  }
-}

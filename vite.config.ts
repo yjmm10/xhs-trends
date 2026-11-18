@@ -9,7 +9,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           echarts: ['echarts'],
-          vendor: ['react', 'react-dom', 'react-router-dom'],
+          vendor: ['react', 'react-dom'],
         },
       },
     },
