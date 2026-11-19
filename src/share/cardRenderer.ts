@@ -907,85 +907,62 @@ function drawSkill(
     glowColor: tint(T.ink, 0.3),
   });
 
-  // 描述面板：技能卡不再放榜单，简介给足行数
+  // 描述面板 + 2×2 指标：自适应填满卡片（不放首发笔记面板）
   const desc = String(row.skill_description ?? '').trim();
-  let descBottom = titleY + pad * 0.5 + 88 + 34;
+  const rowsBottom = h - pad * 1.9 - reserve;
+  const descTop = titleY + pad * 0.5 + 88 + 34 + 30;
+  const chipH = 150;
+  const chipGap = 16;
+  const chipsBlockH = chipH * 2 + chipGap;
+  // 描述面板可用高度 = 剩余空间 - 指标区 - 间距；行数随之收敛
+  const descAvailH = rowsBottom - descTop - 30 - chipsBlockH;
+  const lineH = 52;
+  const maxLines = Math.max(3, Math.min(14, Math.floor((descAvailH - 62) / lineH)));
+  const lines: string[] = [];
   if (desc) {
     ctx.font = font(400, 30);
-    const lines = wrapText(ctx, desc, w - pad * 2 - 64, 9);
-    const lineH = 52;
-    const panelH = 34 + lines.length * lineH + 28;
-    const py = descBottom + 30;
-    roundRect(ctx, pad, py, w - pad * 2, panelH, 18);
-    ctx.fillStyle = 'rgba(23,33,56,0.65)';
-    ctx.fill();
-    ctx.strokeStyle = tint(T.soft, 0.2);
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = T.accent2;
-    roundRect(ctx, pad + 18, py + 24, 6, panelH - 48, 3);
-    ctx.fill();
+    lines.push(...wrapText(ctx, desc, w - pad * 2 - 64, maxLines));
+  }
+  const panelH = Math.max(150, descAvailH);
+  roundRect(ctx, pad, descTop, w - pad * 2, panelH, 18);
+  ctx.fillStyle = 'rgba(23,33,56,0.65)';
+  ctx.fill();
+  ctx.strokeStyle = tint(T.soft, 0.2);
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.fillStyle = T.accent2;
+  roundRect(ctx, pad + 18, descTop + 24, 6, panelH - 48, 3);
+  ctx.fill();
+  if (lines.length > 0) {
+    // 简介在面板内垂直居中，短简介也不会显得上重下空
+    const blockTop = descTop + (panelH - lines.length * lineH) / 2;
     lines.forEach((ln, i) => {
-      text(ctx, ln, pad + 48, py + 58 + i * lineH, {
+      text(ctx, ln, pad + 48, blockTop + 40 + i * lineH, {
         f: font(400, 30),
         color: tint(T.softInk, 0.9),
       });
     });
-    descBottom = py + panelH;
+  } else {
+    text(ctx, '简介待补充 · NO DESCRIPTION', pad + 48, descTop + panelH / 2, {
+      f: font(500, 28),
+      color: tint(T.muted, 0.9),
+    });
   }
 
-  // 核心指标 chips：四格统一尺寸
-  const useRank2 = useRank;
+  // 核心指标 2×2：四格同尺寸，吃满底部空间
   const chips: [string, string, string][] = [
     ['USERS · 在用', row.use_cnt != null ? fmt(row.use_cnt) : '—', T.accent],
     ['7D NEW · 7日新增', row.new7_cnt != null ? '+' + fmt(row.new7_cnt) : '—', T.accent2],
     ['WORKS · 作品', row.skill_cnt != null ? fmt(row.skill_cnt) : '—', T.gold],
-    ['USE RANK · 在用榜', useRank2 != null ? '#' + useRank2 : '—', T.soft],
+    ['USE RANK · 在用榜', useRank != null ? '#' + useRank : '—', T.soft],
   ];
-  const chipH = 112;
-  const chipGap = 16;
-  const cw = (w - pad * 2 - 3 * chipGap) / 4;
-  const chipsY = descBottom + 30;
+  const chipW = (w - pad * 2 - chipGap) / 2;
+  const chipsY = descTop + panelH + 30;
   chips.forEach(([label, value, color], i) => {
-    drawStatChip(ctx, pad + i * (cw + chipGap), chipsY, cw, chipH, label, value, color);
+    const cx = pad + (i % 2) * (chipW + chipGap);
+    const cy = chipsY + Math.floor(i / 2) * (chipH + chipGap);
+    drawStatChip(ctx, cx, cy, chipW, chipH, label, value, color);
   });
-  const chipsBottom = chipsY + chipH;
-
-  const rowsBottom = h - pad * 1.9 - reserve;
-
-  // 底部：首发笔记面板，高度吃满剩余空间（作者 / 发布者信息在笔记页可见）
-  const noteTop = chipsBottom + 30;
-  const noteH = Math.max(130, rowsBottom - noteTop);
-  roundRect(ctx, pad, noteTop, w - pad * 2, noteH, 18);
-  const ng = ctx.createLinearGradient(pad, noteTop, pad + w - pad * 2, noteTop + noteH);
-  ng.addColorStop(0, 'rgba(26,37,62,0.85)');
-  ng.addColorStop(1, 'rgba(13,19,34,0.85)');
-  ctx.fillStyle = ng;
-  ctx.fill();
-  ctx.strokeStyle = tint(T.accent2, 0.25);
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  const noteUrl = row.note_id ? 'xiaohongshu.com/explore/' + row.note_id : '';
-  text(ctx, 'NOTE · 首发笔记', pad + 28, noteTop + 40, {
-    f: font(600, 20, MONO),
-    color: T.accent2,
-  });
-  if (noteUrl) {
-    text(ctx, '↗ ' + noteUrl, pad + 28, noteTop + noteH * 0.52, {
-      f: font(700, 34),
-      color: T.ink,
-      maxWidth: w - pad * 2 - 56,
-    });
-    text(ctx, '作者 / 发布者信息见笔记页 · AUTHOR ON NOTE', pad + 28, noteTop + noteH * 0.78, {
-      f: font(500, 22),
-      color: tint(T.muted, 0.9),
-    });
-  } else {
-    text(ctx, '作者 / 发布者信息见小红书技能页', pad + 28, noteTop + noteH * 0.55, {
-      f: font(500, 26),
-      color: tint(T.muted, 0.9),
-    });
-  }
 }
 
 function listOf(r: RankRow, key: RankListKey): number {
