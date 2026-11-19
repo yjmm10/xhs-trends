@@ -17,7 +17,7 @@ import { VIBE_DATA_URL, validateVibeSnapshot, saveVibeSnapshot } from './lib/vib
 const here = dirname(fileURLToPath(import.meta.url));
 const SNAPSHOTS_DIR = join(here, '../data/snapshots');
 const VIBE_SNAPSHOTS_DIR = join(here, '../data/vibe-snapshots');
-const MAX_RETRIES = 2; // 首次 + 2 次重试
+const MAX_RETRIES = 4; // 首次 + 4 次重试（云端出口对小红书偶发网络失败，拉长退避）
 const TIMEOUT_MS = 30_000;
 const VIBE_TIMEOUT_MS = 120_000; // vibe data.json 含 4 万+ app（约 10MB），实测可能超过 30s
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36';
@@ -42,7 +42,7 @@ async function fetchWithRetry() {
       lastError = err;
       if (attempt <= MAX_RETRIES) {
         console.warn(`[collect] 第 ${attempt} 次失败（${err.message}），重试...`);
-        await new Promise((r) => setTimeout(r, 2000 * attempt));
+        await new Promise((r) => setTimeout(r, 5000 * attempt + Math.floor(Math.random() * 3000)));
       }
     }
   }

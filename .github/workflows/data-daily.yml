@@ -42,7 +42,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # 采集失败不阻断流水线：沿用已有数据照常构建部署，下个周期再补采
       - name: Collect snapshots
+        continue-on-error: true
         env:
           XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
           VIBE_TIMEOUT_MS: '180000'
