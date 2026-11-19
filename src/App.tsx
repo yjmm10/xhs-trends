@@ -5,7 +5,6 @@ import MetricCard from './components/MetricCard';
 import RankTable from './components/RankTable';
 import CategoryBoard from './components/CategoryBoard';
 import MiniRank from './components/MiniRank';
-import CatBars from './components/CatBars';
 import FeaturedList from './components/FeaturedList';
 import Aurora from './components/Aurora';
 import ShareModal from './components/ShareModal';
@@ -482,25 +481,6 @@ export default function App() {
               </div>
             </section>
 
-            <section className="psec">
-              <div className="sec-head">
-                <span className="sec-kicker">CATEGORIES</span>
-                <h2>类目生态</h2>
-              </div>
-              <div className="grid-2">
-                <div className="card">
-                  <h3>小工具类目分布</h3>
-                  <p className="card-note">
-                    三大 app 榜去重 {catDist.reduce((s, d) => s + d.official + d.estimate, 0)} 个小工具的类目标注分布。
-                  </p>
-                  <CatBars dist={catDist} />
-                </div>
-                <div className="card">
-                  <h3>官方精选推荐</h3>
-                  <FeaturedList items={vibe.official?.featured ?? []} />
-                </div>
-              </div>
-            </section>
 
           </>
         )}
@@ -604,10 +584,6 @@ export default function App() {
                   <MetricCard label="快照覆盖" value={vSeries.length} hint="份日度快照" />
                 </div>
 
-                <div className="card">
-                  <h3>收录量趋势</h3>
-                  <TrendBlock series={vSeries} height={360} />
-                </div>
 
                 <div className="card">
                   <h3>官方推荐</h3>
