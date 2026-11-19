@@ -1,12 +1,13 @@
-# 每日数据采集：定时抓取 SKILL / 小工具官方榜单快照并聚合
+# 每日数据采集 + 自动部署 GitHub Pages
 #
 # 数据流：
 #   npm run collect   → data/snapshots/skills-*.json + data/vibe-snapshots/vibe-*.json（按 dataDate 幂等）
 #   npm run aggregate → data/derived/*.json（overview / rankings / vibe）
-#   npm run build     → tsc + vite build（校验派生数据与前端类型假设一致）
+#   npm run build     → tsc + vite build → dist/
 #
-# 采集成功后将 data/ 变更提交回仓库（历史快照即趋势数据库，勿删旧文件）。
-# 用 GITHUB_TOKEN 推送不会触发其他 workflow，无循环风险。
+# 采集成功后将 data/ 变更提交回仓库（历史快照即趋势数据库，勿删旧文件），
+# 随后第二个 job 拉取最新 main 构建并发布到 GitHub Pages —— 网站数据每日自动更新。
+# 用 GITHUB_TOKEN 推送不会触发本 workflow 其他运行，无循环风险。
 # 可选配置：Settings → Secrets → Actions 添加 XHS_COOKIE（未配置时以匿名模式采集，小工具榜不受影响）。
 
 name: data-daily
@@ -19,6 +20,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: data-daily
@@ -48,9 +51,6 @@ jobs:
       - name: Aggregate derived data
         run: npm run aggregate
 
-      - name: Build check
-        run: npm run build
-
       - name: Commit data
         run: |
           git config user.name "github-actions[bot]"
@@ -62,3 +62,41 @@ jobs:
             git commit -m "chore(data): daily snapshot $(date -u +%F)"
             git push
           fi
+
+  deploy:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # 拉取 collect 步骤提交后的最新 main，保证网站吃到当日数据
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
