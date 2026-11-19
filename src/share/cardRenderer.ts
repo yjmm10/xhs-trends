@@ -793,15 +793,14 @@ function drawTrend(
       drawChartPanel(ctx, ix, titleY + 90, w - ix - pad, h - titleY - 90 - pad * 1.9 - reserve, series);
     }
   } else {
-    const mw = (w - pad * 2 - 24) / 3;
-    const mh = mw * 0.62;
-    let x = pad;
+    // 竖版：三张指标卡同尺寸一行 + 固定高度图表 + 近期快照条（曲线不再撑满整卡）
+    const mw = (w - pad * 2 - 2 * 24) / 3;
+    const mh = 280;
     const my = titleY + 96;
-    drawMetric(ctx, x, my, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, T.accent, sparkTotals);
-    x += mw + 24;
+    drawMetric(ctx, pad, my, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, T.accent, sparkTotals);
     drawMetric(
       ctx,
-      x,
+      pad + mw + 24,
       my,
       mw,
       mh,
@@ -811,9 +810,25 @@ function drawTrend(
       T.accent2,
       sparkNews
     );
-    x += mw + 24;
-    drawMetric(ctx, x, my, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档', T.gold);
-    drawChartPanel(ctx, pad, my + mh + 30, w - pad * 2, h - (my + mh + 30) - pad * 1.9 - reserve, series);
+    // 第三张同样配走势线（快照累计数），三张卡内部结构一致
+    drawMetric(ctx, pad + (mw + 24) * 2, my, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档', T.gold, series.map((_, i) => i + 1));
+
+    // 图表：固定高度上限，不再吃掉全部剩余空间
+    const chartTop = my + mh + 30;
+    const chartH = Math.min(500, Math.max(260, h - chartTop - pad * 1.9 - reserve - 220));
+    drawChartPanel(ctx, pad, chartTop, w - pad * 2, chartH, series);
+
+    // 底部：近期快照 4 格，填满剩余空间
+    const stripTop = chartTop + chartH + 30;
+    const stripH = h - pad * 1.9 - reserve - stripTop;
+    const recent = series.slice(-4);
+    if (recent.length > 0 && stripH > 90) {
+      const cw = (w - pad * 2 - 3 * 16) / 4;
+      recent.forEach((p, i) => {
+        const delta = p.newSinceLast != null ? ' +' + fmt(p.newSinceLast) : '';
+        drawStatChip(ctx, pad + i * (cw + 16), stripTop, cw, stripH, p.date.slice(5) + delta, fmt(p.total), i === recent.length - 1 ? T.accent : T.soft);
+      });
+    }
   }
 }
 
