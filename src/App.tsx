@@ -681,6 +681,19 @@ export default function App() {
               xhs-trends · 小红书生态数据雷达：每日自动追踪 REDSKILL 技能榜与小工具（Vibe）榜，
               沉淀历史快照，呈现收录量趋势、榜单变化与技能档案，支持一键生成数据分享卡片。
             </p>
+            <div className="about-links">
+              <a
+                className="about-link"
+                href="https://www.xiaohongshu.com/user/profile/5be3d71651783a692218e19e"
+                target="_blank"
+                rel="noreferrer"
+              >
+                ◉ 小红书主页 ↗
+              </a>
+              <a className="about-link" href="https://github.com/yjmm10" target="_blank" rel="noreferrer">
+                ⑂ GitHub / yjmm10 ↗
+              </a>
+            </div>
           </div>
         )}
       </div>

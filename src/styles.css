@@ -1763,6 +1763,31 @@ a.cat-item-name:hover {
   margin: 0 auto 16px;
   background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.6), transparent);
 }
+/* 社交链接胶囊 */
+.about-links {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 28px;
+}
+.about-link {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--accent2);
+  text-decoration: none;
+  padding: 10px 20px;
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 999px;
+  background: rgba(23, 33, 56, 0.5);
+  transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
+}
+.about-link:hover {
+  color: #7ef0ff;
+  border-color: rgba(34, 211, 238, 0.8);
+  box-shadow: 0 0 18px rgba(34, 211, 238, 0.25);
+}
 .snap-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
