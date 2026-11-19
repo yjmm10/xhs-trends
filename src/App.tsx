@@ -6,6 +6,7 @@ import RankTable from './components/RankTable';
 import CategoryBoard from './components/CategoryBoard';
 import MiniRank from './components/MiniRank';
 import FeaturedList from './components/FeaturedList';
+import avatarUrl from './assets/avatar.jpg';
 import Aurora from './components/Aurora';
 import ShareModal from './components/ShareModal';
 import { overview, rankings, vibe } from './data';
@@ -669,35 +670,8 @@ export default function App() {
         {domain === 'about' && (
           <div className="about">
             <div className="about-avatar" aria-hidden>
-              <svg viewBox="0 0 120 120" width="148" height="148">
-                <defs>
-                  <radialGradient id="av-bg" cx="50%" cy="42%" r="70%">
-                    <stop offset="0%" stopColor="#111b30" />
-                    <stop offset="100%" stopColor="#05070d" />
-                  </radialGradient>
-                </defs>
-                <circle cx="60" cy="60" r="56" fill="url(#av-bg)" stroke="rgba(34,211,238,0.3)" />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="56"
-                  fill="none"
-                  stroke="rgba(34,211,238,0.55)"
-                  strokeDasharray="2 10"
-                  className="av-ring"
-                />
-                <path
-                  d="M60 28 C43 28 33 44 33 62 C33 82 42 96 60 96 C78 96 87 82 87 62 C87 44 77 28 60 28 Z"
-                  fill="#0a1120"
-                  stroke="rgba(125,139,168,0.3)"
-                />
-                <path
-                  d="M60 44 C50 44 44 54 44 66 C44 78 50 86 60 86 C70 86 76 78 76 66 C76 54 70 44 60 44 Z"
-                  fill="#050a14"
-                />
-                <ellipse cx="50" cy="64" rx="4.2" ry="2.8" fill="#22d3ee" className="av-eye" />
-                <ellipse cx="70" cy="64" rx="4.2" ry="2.8" fill="#22d3ee" className="av-eye" />
-              </svg>
+              <img className="about-photo" src={avatarUrl} alt="" />
+              <span className="about-ring" />
             </div>
             <div className="about-name">
               lucas <span className="about-sep">|</span> 独立开发者
