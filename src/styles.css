@@ -719,39 +719,34 @@ table.data tr:hover td {
 }
 
 /* ── 小工具榜预留板块 ─────────────────── */
-.board-placeholder {
-  padding: 52px 24px;
-  text-align: center;
-  border: 1px dashed rgba(56, 189, 248, 0.25);
-  border-radius: 14px;
-  background: rgba(13, 19, 34, 0.4);
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
 }
-.bp-chip {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 2px;
-  color: var(--accent);
-  border: 1px solid rgba(34, 211, 238, 0.4);
-  border-radius: 999px;
-  padding: 4px 14px;
-  margin-bottom: 14px;
+.grid-2 .card {
+  min-width: 0;
 }
-.board-placeholder h3 {
-  margin: 0 0 10px;
-  font-size: 20px;
-  letter-spacing: 1px;
+.domain-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 12px;
+  background: rgba(13, 19, 34, 0.6);
 }
-.board-placeholder p {
-  margin: 0 auto 14px;
-  max-width: 560px;
-  color: var(--muted);
+.domain-tabs button {
+  padding: 7px 18px;
+  border-radius: 9px;
   font-size: 14px;
-  line-height: 1.7;
-}
-.bp-meta {
-  font-family: var(--mono);
-  font-size: 11px;
-  color: rgba(125, 139, 168, 0.8);
+  color: var(--muted);
   letter-spacing: 1px;
+}
+.domain-tabs button:hover {
+  color: var(--ink);
+}
+.domain-tabs button.active {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(244, 63, 142, 0.18));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.45);
 }

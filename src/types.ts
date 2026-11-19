@@ -49,3 +49,42 @@ export interface Rankings {
   todayList: RankRow[];
   authorList: RankRow[];
 }
+
+export type VibeListKey = 'todayList' | 'new7List' | 'useList' | 'authorList';
+
+export interface VibeRow {
+  rank: number;
+  prevRank: number | null;
+  rankDelta: number | null;
+  isNew: boolean;
+  app_id?: string;
+  app_name?: string;
+  slogan?: string;
+  note_id?: string;
+  use_users?: number;
+  active7d?: number;
+  cum_users?: number;
+  creator?: string;
+  nickname?: string;
+  app_cnt?: number;
+  gmt_create?: string;
+}
+
+export interface VibeRankings {
+  date: string;
+  prevDate: string | null;
+  todayList: VibeRow[];
+  new7List: VibeRow[];
+  useList: VibeRow[];
+  authorList: VibeRow[];
+}
+
+export interface VibeData {
+  hasData: boolean;
+  generatedAt: string;
+  latestDate: string | null;
+  prevDate: string | null;
+  series: SeriesPoint[];
+  latest: { date: string; total: number; newSinceLast: number | null } | null;
+  rankings: VibeRankings | null;
+}

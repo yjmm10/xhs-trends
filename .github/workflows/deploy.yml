@@ -32,9 +32,14 @@ jobs:
 
       - run: npm ci
 
-      # 采集官方最新 data.json；失败不阻塞（继续用已有快照构建）
+      # SKILL 榜无需登录；小工具榜需要 secrets.XHS_COOKIE（未配置时自动跳过）
       - name: Collect snapshot
+        env:
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
         run: npm run collect || echo "::warning::collect failed, building with existing snapshots"
+
+      - name: Aggregate
+        run: npm run aggregate
 
       - name: Build
         run: npm run build
@@ -43,7 +48,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/snapshots
+          git add data/snapshots data/vibe-snapshots
           if git diff --cached --quiet; then
             echo "No snapshot changes"
           else

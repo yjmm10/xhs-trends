@@ -8,13 +8,14 @@
  *
  * 口径：新增 = 相邻快照 skill_id 集合差；消失 = 连续 >=3 快照缺席。
  */
-import { readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { newSkillIds, compareRanks, disappearedIds } from './lib/diff.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SNAPSHOTS_DIR = join(root, 'data/snapshots');
+const VIBE_SNAPSHOTS_DIR = join(root, 'data/vibe-snapshots');
 const DERIVED_DIR = join(root, 'data/derived');
 
 function loadSnapshots() {
@@ -58,7 +59,6 @@ function main() {
   console.log(
     `[aggregate] 快照 ${snapshots.length} 份（${snapshots[0].dataDate} → ${latest.dataDate}），prev=${hasPrev ? prev.dataDate : '无'}`
   );
-
   // ── 总量曲线 ─────────────────────────────────────────────
   const series = [];
   for (let i = 0; i < snapshots.length; i++) {
@@ -102,9 +102,79 @@ function main() {
     authorList: compareRanks(hasPrev ? prev.authorList : [], latest.authorList, 'author_id'),
   });
 
+  aggregateVibe();
+
   console.log(
     `[aggregate] 完成：total=${latest.allSkills.length} 较上次新增=${hasPrev ? series[series.length - 1].newSinceLast : 'N/A'} 消失(连续3缺席)=${disappeared.length}`
   );
+}
+
+function loadVibeSnapshots() {
+  if (!existsSync(VIBE_SNAPSHOTS_DIR)) return [];
+  const files = readdirSync(VIBE_SNAPSHOTS_DIR)
+    .filter((f) => /^vibe-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort();
+  return files
+    .map((f) => JSON.parse(readFileSync(join(VIBE_SNAPSHOTS_DIR, f), 'utf-8')))
+    .sort((a, b) => a.dataDate.localeCompare(b.dataDate));
+}
+
+/** 当日“上榜池”：四榜中三个 app 榜的 app_id 并集，用于集合差新增口径。 */
+function vibePool(s) {
+  const ids = new Set();
+  for (const list of [s.useList, s.new7List, s.todayList]) {
+    for (const row of list) ids.add(String(row.app_id));
+  }
+  return ids;
+}
+
+function aggregateVibe() {
+  const snaps = loadVibeSnapshots();
+  if (snaps.length === 0) {
+    writeDerived('vibe.json', {
+      hasData: false,
+      generatedAt: new Date().toISOString(),
+      series: [],
+      latest: null,
+      rankings: null,
+    });
+    console.log('[aggregate][vibe] 无快照，写出空骨架');
+    return;
+  }
+  const latest = snaps[snaps.length - 1];
+  const prev = snaps.length >= 2 ? snaps[snaps.length - 2] : null;
+  const series = snaps.map((s, i) => {
+    let newSinceLast = null;
+    if (i > 0) {
+      const a = vibePool(snaps[i - 1]);
+      const b = vibePool(s);
+      let n = 0;
+      for (const id of b) if (!a.has(id)) n++;
+      newSinceLast = n;
+    }
+    return { date: s.dataDate, total: s.totalApps ?? 0, newSinceLast };
+  });
+  writeDerived('vibe.json', {
+    hasData: true,
+    generatedAt: new Date().toISOString(),
+    latestDate: latest.dataDate,
+    prevDate: prev ? prev.dataDate : null,
+    series,
+    latest: {
+      date: latest.dataDate,
+      total: latest.totalApps ?? 0,
+      newSinceLast: series[series.length - 1].newSinceLast,
+    },
+    rankings: {
+      date: latest.dataDate,
+      prevDate: prev ? prev.dataDate : null,
+      todayList: compareRanks(prev ? prev.todayList : [], latest.todayList, 'app_id'),
+      new7List: compareRanks(prev ? prev.new7List : [], latest.new7List, 'app_id'),
+      useList: compareRanks(prev ? prev.useList : [], latest.useList, 'app_id'),
+      authorList: compareRanks(prev ? prev.authorList : [], latest.authorList, 'creator'),
+    },
+  });
+  console.log(`[aggregate][vibe] 快照 ${snaps.length} 份，最新 ${latest.dataDate}，totalApps=${latest.totalApps}`);
 }
 
 main();
