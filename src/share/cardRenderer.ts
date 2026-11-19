@@ -996,20 +996,16 @@ function drawList(
   const top = pad * 1.5;
   drawBrand(ctx, w, pad, top, `TOP ${Math.min(10, rows.length)} · ${dateLabel}`, qrInset);
 
-  const titleY = top + pad * 1.55;
-  drawTicker(ctx, w, titleY - pad * 0.5, pad, [
-    ['BOARD', LIST_EN[listKey]],
-    ['DATE', dateLabel],
-    ['RANGE', 'TOP 10'],
-  ]);
-
-  text(ctx, LIST_LABELS[listKey], pad, titleY + pad * 0.85, {
+  // 顶部减负：ticker 与品牌行/副标题信息重复，去掉后顶部不再拥挤
+  const titleY = top + pad * 2.0;
+  const listTop = titleY + 140;
+  text(ctx, LIST_LABELS[listKey], pad, titleY, {
     f: font(900, isWide ? 84 : 76),
     color: T.ink,
     glow: 12,
     glowColor: tint(T.ink, 0.35),
   });
-  text(ctx, `REDSKILL ${LIST_EN[listKey]}`, pad, titleY + pad * 0.85 + 50, {
+  text(ctx, `REDSKILL ${LIST_EN[listKey]}`, pad, titleY + 56, {
     f: font(600, 22, MONO),
     color: T.accent,
     glow: 8,
@@ -1143,18 +1139,19 @@ function drawList(
 
   if (isWide) {
     const colW = (w - pad * 2 - 40) / 2;
-    const availH = h - (titleY + pad * 0.85 + 90) - pad * 1.9;
+    const availH = h - (listTop) - pad * 1.9;
     const rowH = Math.max(56, Math.min(96, availH / 5 - 14));
     top10.forEach((r, i) => {
       const col = i < 5 ? 0 : 1;
       const idx = i % 5;
-      renderRow(r, i, pad + col * (colW + 40), titleY + pad * 0.85 + 90 + idx * (rowH + 14), colW, rowH);
+      renderRow(r, i, pad + col * (colW + 40), listTop + idx * (rowH + 14), colW, rowH);
     });
   } else {
-    const availH = h - (titleY + pad * 0.85 + 90) - pad * 1.9;
+    const availH = h - (listTop) - pad * 1.9;
     const rowH = Math.max(48, Math.min(104, availH / top10.length - 12));
     top10.forEach((r, i) => {
-      renderRow(r, i, pad, titleY + pad * 0.85 + 90 + i * (rowH + 12), w - pad * 2, rowH);
+      // 行宽左右各内收 14px，视觉上更从容
+      renderRow(r, i, pad + 14, listTop + i * (rowH + 12), w - pad * 2 - 28, rowH);
     });
   }
 }
