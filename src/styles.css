@@ -1775,7 +1775,7 @@ a.cat-item-name:hover {
   font-family: var(--mono);
   font-size: 13px;
   letter-spacing: 1px;
-  color: var(--accent2);
+  color: var(--accent-2);
   text-decoration: none;
   padding: 10px 20px;
   border: 1px solid rgba(34, 211, 238, 0.35);
