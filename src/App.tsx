@@ -707,12 +707,6 @@ export default function App() {
         )}
       </div>
 
-      <footer className="footer">
-        <div className="footer-inner">
-          <p style={{ margin: 0 }}>REDSKILL TRENDS · 每日追踪 · 数据仅作趋势参考</p>
-        </div>
-      </footer>
-
       <ShareModal
         open={shareOpen}
         onClose={() => setShareOpen(false)}
