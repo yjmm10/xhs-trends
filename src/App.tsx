@@ -7,6 +7,8 @@ import CategoryBoard from './components/CategoryBoard';
 import MiniRank from './components/MiniRank';
 import FeaturedList from './components/FeaturedList';
 import avatarUrl from './assets/avatar.jpg';
+import wechatQr from './assets/wechat-qrcode.png';
+import wechatReward from './assets/wechat-reward.png';
 import Aurora from './components/Aurora';
 import ShareModal from './components/ShareModal';
 import { overview, rankings, vibe } from './data';
@@ -670,17 +672,33 @@ export default function App() {
         {domain === 'about' && (
           <div className="about">
             <div className="about-avatar" aria-hidden>
+              <span className="about-glow" />
               <img className="about-photo" src={avatarUrl} alt="" />
               <span className="about-ring" />
+              <span className="about-spark s1" />
+              <span className="about-spark s2" />
+              <span className="about-spark s3" />
             </div>
             <div className="about-name">
               lucas <span className="about-sep">|</span> 独立开发者
             </div>
             <p className="about-line">编译世界，反编译自己。</p>
             <p className="about-bio">
-              xhs-trends · 小红书生态数据雷达：每日自动追踪 REDSKILL 技能榜与小工具（Vibe）榜，
-              沉淀历史快照，呈现收录量趋势、榜单变化与技能档案，支持一键生成数据分享卡片。
+              xhs-trends · 小红书生态最硬核的开源数据雷达：REDSKILL 技能榜 × Vibe 小工具榜每日自动追踪、
+              全量快照存档，收录趋势与榜单起伏一屏尽览，还能一键生成刷屏级数据分享卡片。
             </p>
+            <div className="about-qr-row">
+              <div className="about-qr-card">
+                <span className="about-qr-badge">WECHAT · 加好友</span>
+                <img src={wechatQr} alt="微信加好友二维码" />
+                <span className="about-qr-label">扫码加个好友</span>
+              </div>
+              <div className="about-qr-card gold">
+                <span className="about-qr-badge">赞赏 · RED PACKET</span>
+                <img src={wechatReward} alt="微信赞赏二维码" />
+                <span className="about-qr-label">请我喝杯咖啡 ☕</span>
+              </div>
+            </div>
             <div className="about-links">
               <a
                 className="about-link"
