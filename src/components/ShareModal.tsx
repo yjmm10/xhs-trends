@@ -4,12 +4,10 @@ import { addShare, removeShare, useShares } from '../lib/localStore';
 import { xhsNoteUrl } from '../lib/vibeCats';
 import {
   LIST_LABELS,
-  SHARE_SIZES,
   SHARE_THEMES,
   copyCanvas,
   downloadCanvas,
   renderShareCard,
-  type ShareSize,
   type ShareType,
 } from '../share/cardRenderer';
 
@@ -20,7 +18,6 @@ interface Props {
   rankings: Rankings;
 }
 
-const SIZE_KEYS = Object.keys(SHARE_SIZES) as ShareSize[];
 const ALL_LIST_KEYS = Object.keys(LIST_LABELS) as RankListKey[];
 
 /** 检测技能当前上榜的榜单；一个都没上则默认使用人数榜 */
@@ -34,7 +31,6 @@ function detectLists(r: RankRow | null, rankings: Rankings): RankListKey[] {
 
 export default function ShareModal({ open, onClose, overview, rankings }: Props) {
   const [type, setType] = useState<ShareType>('trend');
-  const [size, setSize] = useState<ShareSize>('xhs');
   const [listKey, setListKey] = useState<RankListKey>('useList');
   const [theme, setTheme] = useState(SHARE_THEMES[0].id);
   const [skillLists, setSkillLists] = useState<RankListKey[]>(['useList']);
@@ -82,7 +78,6 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
     setBusy(true);
     renderShareCard({
       type,
-      size,
       overview,
       rankings,
       listKey,
@@ -107,7 +102,7 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
     return () => {
       cancelled = true;
     };
-  }, [open, type, size, listKey, theme, skillLists, link, skillId, overview, rankings, selectedSkill]);
+  }, [open, type, listKey, theme, skillLists, link, skillId, overview, rankings, selectedSkill]);
 
   const shares = useShares();
 
@@ -119,7 +114,7 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
     if (!c) return;
     try {
       const typeLabel = type === 'trend' ? '趋势总览' : type === 'skill' ? `技能 ${selectedSkill?.skill_name ?? ''}` : '榜单 TOP10';
-      addShare(`${typeLabel} · ${SHARE_SIZES[size].label} · ${overview.latestDate}`, c.toDataURL('image/jpeg', 0.9));
+      addShare(`${typeLabel} · ${overview.latestDate}`, c.toDataURL('image/jpeg', 0.9));
     } catch {
       /* 缓存失败静默降级：不影响下载/复制 */
     }
@@ -280,17 +275,6 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 onChange={(e) => setLink(e.target.value)}
               />
             </label>
-
-            <label className="field">
-              <span>卡片尺寸（平台）</span>
-              <div className="seg">
-                {SIZE_KEYS.map((k) => (
-                  <button key={k} className={size === k ? 'active' : ''} onClick={() => setSize(k)}>
-                    <span className="t">{SHARE_SIZES[k].label}</span>
-                  </button>
-                ))}
-              </div>
-            </label>
           </div>
 
           <div>
@@ -304,7 +288,7 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 onClick={() => {
                   if (!canvasRef.current) return;
                   cacheCurrent();
-                  downloadCanvas(canvasRef.current, `redskill-${type}-${size}-${overview.latestDate}.png`);
+                  downloadCanvas(canvasRef.current, `redskill-${type}-${overview.latestDate}.png`);
                 }}
               >
                 ⬇ 下载 PNG
@@ -313,7 +297,7 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 {copied ? '✓ 已复制到剪贴板' : '⧉ 复制图片'}
               </button>
               <span className="modal-note">
-                {busy ? '渲染中…' : `${SHARE_SIZES[size].w}×${SHARE_SIZES[size].h}px · 数据日期 ${overview.latestDate}`}
+                {busy ? '渲染中…' : '1080×1440 · 小红书 3:4 · 数据日期 ' + overview.latestDate}
               </span>
             </div>
 

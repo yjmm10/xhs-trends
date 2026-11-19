@@ -7,14 +7,6 @@ import { encode } from 'uqr';
 import type { Overview, Rankings, RankRow, RankListKey } from '../types';
 
 export type ShareType = 'trend' | 'skill' | 'list';
-export type ShareSize = 'xhs' | 'square' | 'wide' | 'story';
-
-export const SHARE_SIZES: Record<ShareSize, { w: number; h: number; label: string; desc: string }> = {
-  xhs: { w: 1080, h: 1440, label: '3:4 小红书', desc: '小红书笔记配图' },
-  square: { w: 1080, h: 1080, label: '1:1 方形', desc: '微博 / 朋友圈' },
-  wide: { w: 1920, h: 1080, label: '16:9 横版', desc: '公众号头图 / X(Twitter)' },
-  story: { w: 1080, h: 1920, label: '9:16 竖屏', desc: '短视频封面 / Story' },
-};
 
 export const LIST_LABELS: Record<RankListKey, string> = {
   useList: '使用人数榜',
@@ -827,30 +819,54 @@ function drawTrend(
 
 /** 统计小卡：与 drawMetric 同族玻璃面板，保证各内容块尺寸统一 */
 function drawStatChip(ctx: Ctx, x: number, y: number, w: number, h: number, label: string, value: string, accent: string) {
-  roundRect(ctx, x, y, w, h, 14);
+  roundRect(ctx, x, y, w, h, 16);
   const g = ctx.createLinearGradient(x, y, x + w, y + h);
   g.addColorStop(0, 'rgba(26,37,62,0.9)');
   g.addColorStop(1, 'rgba(13,19,34,0.9)');
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.strokeStyle = tint(accent, 0.3);
+  ctx.strokeStyle = tint(accent, 0.32);
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.fillStyle = accent;
-  roundRect(ctx, x + 12, y + 14, 4, h - 28, 2);
+  roundRect(ctx, x + 14, y + 18, 5, h - 36, 3);
   ctx.fill();
-  text(ctx, label, x + 26, y + h * 0.32, {
+  text(ctx, label, x + 30, y + h * 0.3, {
     f: font(600, Math.round(h * 0.17), MONO),
     color: T.muted,
   });
-  text(ctx, value, x + 26, y + h * 0.68, {
-    f: font(800, Math.round(h * 0.34), MONO),
+  text(ctx, value, x + 30, y + h * 0.66, {
+    f: font(800, Math.round(h * 0.35), MONO),
     color: accent,
     glow: 10,
     glowColor: tint(accent, 0.5),
-    maxWidth: w - 44,
+    maxWidth: w - 50,
   });
 }
+
+/** 其他榜单成绩细行：未勾选的榜也给出排名情况，填满版面不留空白 */
+function drawMinorRow(ctx: Ctx, x: number, y: number, w: number, h: number, label: string, rank: number | null) {
+  roundRect(ctx, x, y, w, h, 10);
+  ctx.fillStyle = 'rgba(17,25,44,0.72)';
+  ctx.fill();
+  ctx.strokeStyle = tint(T.soft, 0.12);
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  const cy = y + h / 2;
+  text(ctx, label, x + 22, cy, {
+    f: font(600, Math.round(h * 0.34)),
+    color: tint(T.muted, 0.9),
+    baseline: 'middle',
+  });
+  text(ctx, rank != null ? '#' + rank : '未上榜', x + w - 22, cy, {
+    f: font(700, Math.round(h * 0.34), MONO),
+    color: rank != null ? T.accent : tint(T.muted, 0.5),
+    align: 'right',
+    baseline: 'middle',
+  });
+}
+
+const ALL_LISTS: RankListKey[] = ['useList', 'todayList', 'newList', 'authorList'];
 
 function drawSkill(
   ctx: Ctx,
@@ -859,15 +875,12 @@ function drawSkill(
   pad: number,
   row: RankRow,
   lists: { key: RankListKey; rows: RankRow[] }[],
+  rankings: Rankings,
   reserve = 0,
   qrInset = 0
 ) {
-  const n0 = lists.length;
-  // wide 且未勾选任何榜时退化为通栏排版（右栏无内容可放）
-  const wide = w > h && n0 > 0;
-  const isWide = wide;
+  const n = lists.length;
   const top = pad * 1.5;
-  const n = n0;
   // 右下大水印：主榜排名
   const mainRank = lists.map((l) => l.rows.find((x) => String(x.skill_id) === String(row.skill_id))?.rank).find(Boolean);
   ctx.save();
@@ -875,10 +888,10 @@ function drawSkill(
   ctx.fillStyle = tint(T.accent, 0.055);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`#${mainRank ?? row.rank}`, w - pad * 0.4, h - pad * 1.2);
+  ctx.fillText('#' + (mainRank ?? row.rank), w - pad * 0.4, h - pad * 1.2);
   ctx.restore();
 
-  drawBrand(ctx, w, pad, top, `SKILL #${row.skill_id ?? row.rank}`, qrInset);
+  drawBrand(ctx, w, pad, top, 'SKILL #' + (row.skill_id ?? row.rank), qrInset);
 
   const titleY = top + pad * 1.55;
   drawTicker(ctx, w, titleY - pad * 0.5, pad, [
@@ -888,45 +901,40 @@ function drawSkill(
   ], T.accent2);
 
   text(ctx, '技能档案 · SKILL PROFILE', pad, titleY + pad * 0.5, {
-    f: font(700, 26),
+    f: font(700, 28),
     color: T.accent2,
     glow: 10,
     glowColor: tint(T.accent2, 0.6),
   });
-  const nameW = isWide ? w * 0.46 : w - pad * 2;
-  text(ctx, String(row.skill_name ?? '—'), pad, titleY + pad * 0.5 + 74, {
-    f: font(900, isWide ? 82 : 74),
+  text(ctx, String(row.skill_name ?? '—'), pad, titleY + pad * 0.5 + 88, {
+    f: font(900, 88),
     color: T.ink,
-    maxWidth: nameW,
+    maxWidth: w - pad * 2,
     glow: 12,
     glowColor: tint(T.ink, 0.3),
   });
 
-  // 行区（wide 双栏右列 / portrait 通栏）
-  const rx = isWide ? w * 0.52 : pad;
-  const rw = isWide ? w - rx - pad : w - pad * 2;
-
-  // 描述面板：无榜单行时放宽行数填充版面
+  // 描述面板：榜单越少行数越宽裕，填充版面
   const desc = String(row.skill_description ?? '').trim();
-  let descBottom = titleY + pad * 0.5 + 74 + 30;
+  let descBottom = titleY + pad * 0.5 + 88 + 34;
   if (desc) {
-    ctx.font = font(400, 27);
-    const maxW = (isWide ? w * 0.44 : w - pad * 2) - 60;
-    const lines = wrapText(ctx, desc, maxW, n === 0 ? 6 : isWide ? 4 : 3);
-    const panelH = 30 + lines.length * 44 + 26;
-    const py = descBottom + 26;
-    roundRect(ctx, pad, py, isWide ? w * 0.44 : w - pad * 2, panelH, 16);
+    ctx.font = font(400, 30);
+    const lines = wrapText(ctx, desc, w - pad * 2 - 64, n === 0 ? 6 : 4);
+    const lineH = 52;
+    const panelH = 34 + lines.length * lineH + 28;
+    const py = descBottom + 30;
+    roundRect(ctx, pad, py, w - pad * 2, panelH, 18);
     ctx.fillStyle = 'rgba(23,33,56,0.65)';
     ctx.fill();
     ctx.strokeStyle = tint(T.soft, 0.2);
     ctx.lineWidth = 1.5;
     ctx.stroke();
     ctx.fillStyle = T.accent2;
-    roundRect(ctx, pad + 16, py + 22, 5, panelH - 44, 3);
+    roundRect(ctx, pad + 18, py + 24, 6, panelH - 48, 3);
     ctx.fill();
     lines.forEach((ln, i) => {
-      text(ctx, ln, pad + 44, py + 52 + i * 44, {
-        f: font(400, 27),
+      text(ctx, ln, pad + 48, py + 58 + i * lineH, {
+        f: font(400, 30),
         color: tint(T.softInk, 0.9),
       });
     });
@@ -942,58 +950,54 @@ function drawSkill(
   })();
   const chips: [string, string, string][] = [
     ['USERS · 在用', row.use_cnt != null ? fmt(row.use_cnt) : '—', T.accent],
-    ['7D NEW · 7日新增', row.new7_cnt != null ? `+${fmt(row.new7_cnt)}` : '—', T.accent2],
+    ['7D NEW · 7日新增', row.new7_cnt != null ? '+' + fmt(row.new7_cnt) : '—', T.accent2],
     ['WORKS · 作品', row.skill_cnt != null ? fmt(row.skill_cnt) : '—', T.gold],
-    ['USE RANK · 在用榜', useRank != null ? `#${useRank}` : '—', T.soft],
+    ['USE RANK · 在用榜', useRank != null ? '#' + useRank : '—', T.soft],
   ];
-  const chipH = n === 0 ? 120 : 96;
-  let chipsBottom: number;
-  if (isWide) {
-    // 左栏 2×2
-    const cw = (w * 0.46 - 20) / 2;
-    chips.forEach(([label, value, color], i) => {
-      const cx = pad + (i % 2) * (cw + 20);
-      const cy = descBottom + 26 + Math.floor(i / 2) * (chipH + 20);
-      drawStatChip(ctx, cx, cy, cw, chipH, label, value, color);
-    });
-    chipsBottom = descBottom + 26 + 2 * chipH + 20;
-  } else {
-    const cw = (w - pad * 2 - 3 * 16) / 4;
-    const cy = descBottom + 26;
-    chips.forEach(([label, value, color], i) => {
-      drawStatChip(ctx, pad + i * (cw + 16), cy, cw, chipH, label, value, color);
-    });
-    chipsBottom = cy + chipH;
-  }
+  const chipH = 112;
+  const chipGap = 16;
+  const cw = (w - pad * 2 - 3 * chipGap) / 4;
+  const chipsY = descBottom + 30;
+  chips.forEach(([label, value, color], i) => {
+    drawStatChip(ctx, pad + i * (cw + chipGap), chipsY, cw, chipH, label, value, color);
+  });
+  const chipsBottom = chipsY + chipH;
 
-  // 榜单行：高度随数量自适应、整组垂直居中，把剩余空间吃满
+  const rowsBottom = h - pad * 1.9 - reserve;
+  const rowGap = 20;
+
   if (n > 0) {
-    const rowsTop = isWide ? titleY + pad * 1.1 : chipsBottom + 30;
-    const availH = h - rowsTop - pad * 1.9 - reserve;
-    const rowGap = 18;
-    const rowH = Math.max(56, Math.min(isWide ? 200 : 150, (availH - (n - 1) * rowGap) / n));
+    // 已选榜单行：少榜时行更高
+    const rowsTop = chipsBottom + 34;
+    const availH = rowsBottom - rowsTop;
+    // 未选榜单的补充细行预留空间
+    const others = ALL_LISTS.filter((k) => !lists.some((l) => l.key === k));
+    const minorH = 52;
+    const minorReserved =
+      others.length > 0 && n < 4 ? others.length * minorH + (others.length - 1) * 10 + 56 : 0;
+    const selAvail = availH - minorReserved;
+    const rowH = Math.max(72, Math.min(n === 1 ? 300 : n === 2 ? 210 : 165, (selAvail - (n - 1) * rowGap) / n));
     const groupH = n * rowH + (n - 1) * rowGap;
-    const groupTop = rowsTop + Math.max(0, (availH - groupH) / 2);
     lists.forEach((l, li) => {
-      const y = groupTop + li * (rowH + rowGap);
+      const y = rowsTop + li * (rowH + rowGap);
       const r = l.rows.find((x) => String(x.skill_id) === String(row.skill_id));
-      roundRect(ctx, rx, y, rw, rowH, 14);
-      const g = ctx.createLinearGradient(rx, y, rx + rw, y);
+      roundRect(ctx, pad, y, w - pad * 2, rowH, 16);
+      const g = ctx.createLinearGradient(pad, y, pad + w - pad * 2, y);
       g.addColorStop(0, 'rgba(26,37,62,0.85)');
       g.addColorStop(1, 'rgba(13,19,34,0.85)');
       ctx.fillStyle = g;
       ctx.fill();
-      ctx.strokeStyle = r ? tint(T.soft, 0.24) : tint(T.soft, 0.1);
+      ctx.strokeStyle = r ? tint(T.soft, 0.26) : tint(T.soft, 0.1);
       ctx.lineWidth = 1.5;
       ctx.stroke();
       const cy = y + rowH / 2;
       if (!r) {
-        text(ctx, LIST_LABELS[l.key], rx + 24, cy, {
+        text(ctx, LIST_LABELS[l.key], pad + 28, cy, {
           f: font(700, Math.round(rowH * 0.22)),
           color: tint(T.muted, 0.65),
           baseline: 'middle',
         });
-        text(ctx, '未上榜', rx + rw - 24, cy, {
+        text(ctx, '未上榜', pad + w - pad * 2 - 28, cy, {
           f: font(500, Math.round(rowH * 0.2)),
           color: tint(T.muted, 0.45),
           align: 'right',
@@ -1003,27 +1007,26 @@ function drawSkill(
       }
       const value = listOf(r, l.key);
       const topVal = Math.max(listOf(l.rows[0] ?? r, l.key), 1);
-      text(ctx, '#' + r.rank, rx + 24, cy, {
-        f: font(800, Math.round(rowH * 0.38), MONO),
+      text(ctx, '#' + r.rank, pad + 28, cy, {
+        f: font(800, Math.round(rowH * 0.36), MONO),
         color: r.rank <= 3 ? T.gold : T.accent,
         baseline: 'middle',
         glow: r.rank <= 3 ? 14 : 0,
         glowColor: tint(T.gold, 0.6),
       });
-      text(ctx, LIST_LABELS[l.key], rx + 110, cy - rowH * 0.16, {
-        f: font(700, Math.round(rowH * 0.24)),
+      text(ctx, LIST_LABELS[l.key], pad + 130, cy - rowH * 0.15, {
+        f: font(700, Math.round(rowH * 0.22)),
         color: T.ink,
         baseline: 'middle',
       });
-      const barY = cy + rowH * 0.14;
-      const barW = rw - 110 - 40 - 220;
-      const bx = rx + 110;
+      const barW = w - pad * 2 - 130 - 40 - 230;
+      const bx = pad + 130;
       if (barW > 60) {
-        roundRect(ctx, bx, barY, barW, 8, 4);
+        roundRect(ctx, bx, cy + rowH * 0.12, barW, 9, 5);
         ctx.fillStyle = tint(T.soft, 0.12);
         ctx.fill();
         const frac = Math.max(0.06, Math.min(1, value / topVal));
-        roundRect(ctx, bx, barY, barW * frac, 8, 4);
+        roundRect(ctx, bx, cy + rowH * 0.12, barW * frac, 9, 5);
         const bg = ctx.createLinearGradient(bx, 0, bx + barW, 0);
         bg.addColorStop(0, tint(T.accent, 0.9));
         bg.addColorStop(1, tint(T.accent2, 0.9));
@@ -1033,13 +1036,33 @@ function drawSkill(
         ctx.fill();
         ctx.shadowBlur = 0;
       }
-      text(ctx, valueLabel(r, l.key), rx + rw - 24, cy, {
-        f: font(600, Math.round(rowH * 0.22), MONO),
+      text(ctx, valueLabel(r, l.key), pad + w - pad * 2 - 28, cy, {
+        f: font(600, Math.round(rowH * 0.2), MONO),
         color: tint(T.softInk, 0.92),
         align: 'right',
         baseline: 'middle',
       });
     });
+
+    // 其他榜单成绩：细行补位，吃掉剩余空白
+    const selBottom = rowsTop + groupH;
+    if (others.length > 0) {
+      const restTop = selBottom + 30;
+      const restH = rowsBottom - restTop;
+      if (restH > 70) {
+        const groupH2 = others.length * minorH + (others.length - 1) * 10;
+        const baseY = restTop + Math.max(0, (restH - groupH2) / 2 - 12);
+        text(ctx, 'OTHER BOARDS · 其他榜单成绩', pad, baseY - 16, {
+          f: font(600, 18, MONO),
+          color: tint(T.muted, 0.8),
+        });
+        others.forEach((k, i) => {
+          const r2 = rankings[k].find((x) => String(x.skill_id) === String(row.skill_id));
+          const yy = baseY + i * (minorH + 10);
+          drawMinorRow(ctx, pad, yy, w - pad * 2, minorH, LIST_LABELS[k], r2 ? r2.rank : null);
+        });
+      }
+    }
   }
 }
 
@@ -1277,7 +1300,6 @@ function drawQRChip(ctx: Ctx, w: number, h: number, pad: number, url: string) {
 
 export interface CardOptions {
   type: ShareType;
-  size: ShareSize;
   overview: Overview;
   rankings: Rankings;
   listKey: RankListKey;
@@ -1294,7 +1316,9 @@ export interface CardOptions {
 export async function renderShareCard(opts: CardOptions): Promise<HTMLCanvasElement> {
   await ensureFonts();
   T = SHARE_THEMES.find((t) => t.id === opts.theme) ?? SHARE_THEMES[0];
-  const { w, h } = SHARE_SIZES[opts.size];
+  // 唯一尺寸：3:4 小红书配图
+  const w = 1080;
+  const h = 1440;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -1315,7 +1339,7 @@ export async function renderShareCard(opts: CardOptions): Promise<HTMLCanvasElem
   } else if (opts.type === 'skill' && opts.skill) {
     const sel = (opts.skillLists ?? []).filter((k) => k in LIST_LABELS);
     const lists = sel.map((key) => ({ key, rows: opts.rankings[key] }));
-    drawSkill(ctx, w, h, pad, opts.skill, lists, 0, qrInset);
+    drawSkill(ctx, w, h, pad, opts.skill, lists, opts.rankings, 0, qrInset);
   } else {
     drawList(ctx, w, h, pad, opts.listKey, opts.rankings[opts.listKey], opts.rankings.date, 0, qrInset);
   }
