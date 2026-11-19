@@ -10,6 +10,7 @@ export interface Overview {
   generatedAt: string;
   latestDate: string;
   prevDate: string | null;
+  genTime?: string;
   series: SeriesPoint[];
   latest: {
     date: string;
@@ -52,6 +53,32 @@ export interface Rankings {
 
 export type VibeListKey = 'todayList' | 'new7List' | 'useList' | 'authorList';
 
+export type CategorySource = 'official' | 'estimate';
+
+export interface VibeCategory {
+  key: string;
+  label: string;
+  icon: string;
+  source: CategorySource;
+}
+
+export interface VibeCategoryMeta {
+  key: string;
+  label: string;
+  icon: string;
+  count: number;
+  items: { app_id: string; app_name?: string; slogan?: string; use_users?: number; note_id?: string }[];
+}
+
+export interface VibeFeaturedItem {
+  app_id: string;
+  app_name?: string;
+  slogan?: string;
+  tag?: string;
+  use_users?: number;
+  note_id?: string;
+}
+
 export interface VibeRow {
   rank: number;
   prevRank: number | null;
@@ -68,6 +95,7 @@ export interface VibeRow {
   nickname?: string;
   app_cnt?: number;
   gmt_create?: string;
+  category?: VibeCategory;
 }
 
 export interface VibeRankings {
@@ -86,5 +114,12 @@ export interface VibeData {
   prevDate: string | null;
   series: SeriesPoint[];
   latest: { date: string; total: number; newSinceLast: number | null } | null;
+  official: {
+    genTime: string;
+    categories: VibeCategoryMeta[];
+    featured: VibeFeaturedItem[];
+    linkOverrides: Record<string, string>;
+  } | null;
+  categoryDistribution: Record<string, number>;
   rankings: VibeRankings | null;
 }

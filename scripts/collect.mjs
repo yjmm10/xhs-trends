@@ -19,6 +19,7 @@ const SNAPSHOTS_DIR = join(here, '../data/snapshots');
 const VIBE_SNAPSHOTS_DIR = join(here, '../data/vibe-snapshots');
 const MAX_RETRIES = 2; // 首次 + 2 次重试
 const TIMEOUT_MS = 30_000;
+const VIBE_TIMEOUT_MS = 120_000; // vibe data.json 含 4 万+ app（约 10MB），实测可能超过 30s
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/157.0.0.0 Safari/537.36';
 
 async function fetchOnce() {
@@ -75,24 +76,23 @@ async function main() {
   await collectVibe();
 }
 
-/** 小工具榜需要登录 Cookie（XHS_COOKIE）；失败只告警，不阻塞 SKILL 采集。 */
+/** 小工具榜数据源已公开可访问；设置 XHS_COOKIE 时附带（兼容需登录场景），失败只告警，不阻塞 SKILL 采集。 */
 async function collectVibe() {
   const cookie = process.env.XHS_COOKIE;
-  if (!cookie) {
-    console.warn('[collect][vibe] 未设置 XHS_COOKIE，跳过小工具榜采集');
-    return;
-  }
   try {
     const url = `${VIBE_DATA_URL}?t=${Date.now()}`;
-    console.log(`[collect][vibe] 拉取 ${url}`);
+    console.log(`[collect][vibe] 拉取 ${url}${cookie ? '（附带 Cookie）' : '（未设置 XHS_COOKIE，匿名访问）'}`);
+    const headers = {
+      accept: '*/*',
+      'user-agent': UA,
+    };
+    if (cookie) {
+      headers.cookie = cookie;
+      headers.referer = 'https://cowork.xiaohongshu.com/s/vibe-app-rank/';
+    }
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: {
-        cookie,
-        referer: 'https://cowork.xiaohongshu.com/s/vibe-app-rank/',
-        accept: '*/*',
-        'user-agent': UA,
-      },
+      signal: AbortSignal.timeout(VIBE_TIMEOUT_MS),
+      headers,
     });
     if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
     const raw = await res.json();
@@ -105,7 +105,10 @@ async function collectVibe() {
     if (action === 'skipped') {
       console.log(`[collect][vibe] 快照已存在，跳过（幂等）`);
     } else {
-      console.log(`[collect][vibe] 已保存 ${file}  dataDate=${snapshot.dataDate}  totalApps=${snapshot.totalApps}  ${counts}`);
+      console.log(
+        `[collect][vibe] 已保存 ${file}  dataDate=${snapshot.dataDate}  totalApps=${snapshot.totalApps}  ${counts}\n` +
+          `  官方元数据: categories=${snapshot.categories.length}类 appCategories=${Object.keys(snapshot.appCategories).length} featured=${snapshot.featured.length} linkOverrides=${Object.keys(snapshot.linkOverrides).length}`
+      );
     }
   } catch (err) {
     console.warn(`[collect][vibe] 小工具榜采集失败（不影响 SKILL）: ${err.message}`);

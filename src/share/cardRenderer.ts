@@ -3,6 +3,7 @@
  * 三种内容：trend 趋势总览 / skill 单个技能 / list 榜单 TOP10
  * 四种平台尺寸：小红书 3:4、方形 1:1、横版 16:9、竖屏 9:16
  */
+import { encode } from 'uqr';
 import type { Overview, Rankings, RankRow, RankListKey } from '../types';
 
 export type ShareType = 'trend' | 'skill' | 'list';
@@ -16,9 +17,9 @@ export const SHARE_SIZES: Record<ShareSize, { w: number; h: number; label: strin
 };
 
 export const LIST_LABELS: Record<RankListKey, string> = {
+  useList: '使用人数榜',
   todayList: '当日新增榜',
   newList: '7天新增榜',
-  useList: '使用人数榜',
   authorList: '作者发布榜',
 };
 
@@ -33,11 +34,95 @@ const SANS = `'Noto Sans SC','PingFang SC','Microsoft YaHei',sans-serif`;
 const MONO = `'JetBrains Mono',ui-monospace,'SFMono-Regular',Consolas,monospace`;
 const DISP = `'Orbitron','Noto Sans SC',sans-serif`;
 
-const CYAN = '#22d3ee';
-const PINK = '#f43f8e';
-const GOLD = '#ffd166';
-const INK = '#f2f7ff';
-const MUTED = '#8fa0c0';
+/** #rrggbb → rgba(r,g,b,a) */
+function tint(hex: string, a: number): string {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** 分享卡主题：一套完整的霓虹深色配色 */
+export interface ShareTheme {
+  id: string;
+  label: string;
+  bg: [string, string, string];
+  accent: string;
+  accent2: string;
+  gold: string;
+  ink: string;
+  muted: string;
+  soft: string;
+  softInk: string;
+}
+
+/** 十套主题配色：主色/副色/背景色相各自独立 */
+export const SHARE_THEMES: ShareTheme[] = [
+  {
+    id: 'aurora', label: '极光青粉',
+    bg: ['#070b16', '#0a1020', '#0d0a1c'],
+    accent: '#22d3ee', accent2: '#f43f8e', gold: '#ffd166',
+    ink: '#f2f7ff', muted: '#8fa0c0', soft: '#38bdf8', softInk: '#cfe0ff',
+  },
+  {
+    id: 'matrix', label: '荧光矩阵',
+    bg: ['#04120b', '#071a10', '#0a1410'],
+    accent: '#34f5a3', accent2: '#a3e635', gold: '#fde047',
+    ink: '#eafff5', muted: '#7ba88f', soft: '#10b981', softInk: '#c9f7e3',
+  },
+  {
+    id: 'sunset', label: '落日余晖',
+    bg: ['#160b06', '#1c0e08', '#1a0a14'],
+    accent: '#fb923c', accent2: '#f87171', gold: '#fbbf24',
+    ink: '#fff7ed', muted: '#c0a092', soft: '#f97316', softInk: '#ffe4d1',
+  },
+  {
+    id: 'sakura', label: '樱花夜',
+    bg: ['#14070d', '#1c0a12', '#180a1a'],
+    accent: '#ff5c8a', accent2: '#ffb4c8', gold: '#ffd166',
+    ink: '#fff5f8', muted: '#c495a5', soft: '#f9a8c9', softInk: '#ffdce8',
+  },
+  {
+    id: 'electric', label: '电光蓝',
+    bg: ['#060a18', '#0a1226', '#0b0a1e'],
+    accent: '#38bdf8', accent2: '#f43f8e', gold: '#fde047',
+    ink: '#f2f7ff', muted: '#8fa0c0', soft: '#60a5fa', softInk: '#d7e6ff',
+  },
+  {
+    id: 'mint', label: '薄荷冰',
+    bg: ['#041210', '#071c18', '#081518'],
+    accent: '#2dd4bf', accent2: '#38bdf8', gold: '#fde047',
+    ink: '#f0fffb', muted: '#7fa8a0', soft: '#14b8a6', softInk: '#ccf3ec',
+  },
+  {
+    id: 'gold', label: '暗金郚银',
+    bg: ['#0f0c04', '#161206', '#120e08'],
+    accent: '#eab308', accent2: '#e2e8f0', gold: '#facc15',
+    ink: '#fffbeb', muted: '#a89f8c', soft: '#d4a017', softInk: '#f2e8cf',
+  },
+  {
+    id: 'crimson', label: '绯红霓虹',
+    bg: ['#120508', '#1a080c', '#160810'],
+    accent: '#fb7185', accent2: '#fb923c', gold: '#fbbf24',
+    ink: '#fff1f2', muted: '#b08f98', soft: '#ef4444', softInk: '#ffd9de',
+  },
+  {
+    id: 'ice', label: '冰川蓝白',
+    bg: ['#040d14', '#07131d', '#081018'],
+    accent: '#a5f3fc', accent2: '#93c5fd', gold: '#fcd34d',
+    ink: '#f8fdff', muted: '#9ab4c4', soft: '#67e8f9', softInk: '#e4f6fc',
+  },
+  {
+    id: 'neon', label: '品红霓虹',
+    bg: ['#120612', '#1a0a16', '#140818'],
+    accent: '#f43f8e', accent2: '#fb923c', gold: '#ffd166',
+    ink: '#fff0f6', muted: '#b392a8', soft: '#ec4899', softInk: '#ffd6e7',
+  },
+];
+
+/** 当前渲染主题（renderShareCard 每次入口处设置；同步渲染，无并发问题） */
+let T: ShareTheme = SHARE_THEMES[0];
 
 type Ctx = CanvasRenderingContext2D;
 
@@ -78,7 +163,7 @@ function text(
 ) {
   const {
     f = font(400, 24),
-    color = INK,
+    color = T.ink,
     align = 'left',
     baseline = 'alphabetic',
     glow = 0,
@@ -137,7 +222,7 @@ function drawStars(ctx: Ctx, w: number, h: number) {
     const y = rand() * h;
     const r = rand() * 1.8 + 0.4;
     ctx.globalAlpha = 0.12 + rand() * 0.3;
-    ctx.fillStyle = i % 7 === 0 ? PINK : '#9fd8ff';
+    ctx.fillStyle = i % 7 === 0 ? T.accent2 : T.soft;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
@@ -148,7 +233,7 @@ function drawStars(ctx: Ctx, w: number, h: number) {
 /** 右上角雷达装饰：同心圆 + 十字 + 扫描弧 */
 function drawRadar(ctx: Ctx, cx: number, cy: number, r: number) {
   ctx.save();
-  ctx.strokeStyle = 'rgba(34,211,238,0.22)';
+  ctx.strokeStyle = tint(T.accent, 0.22);
   ctx.lineWidth = 1.5;
   for (const k of [1, 0.66, 0.33]) {
     ctx.beginPath();
@@ -163,9 +248,9 @@ function drawRadar(ctx: Ctx, cx: number, cy: number, r: number) {
   ctx.stroke();
   const grad = ctx.createConicGradient?.(-0.6, cx, cy);
   if (grad) {
-    grad.addColorStop(0, 'rgba(34,211,238,0.4)');
-    grad.addColorStop(0.12, 'rgba(34,211,238,0)');
-    grad.addColorStop(1, 'rgba(34,211,238,0)');
+    grad.addColorStop(0, tint(T.accent, 0.4));
+    grad.addColorStop(0.12, tint(T.accent, 0));
+    grad.addColorStop(1, tint(T.accent, 0));
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.moveTo(cx, cy);
@@ -173,7 +258,7 @@ function drawRadar(ctx: Ctx, cx: number, cy: number, r: number) {
     ctx.closePath();
     ctx.fill();
   }
-  ctx.fillStyle = CYAN;
+  ctx.fillStyle = T.accent;
   ctx.beginPath();
   ctx.arc(cx, cy, 4, 0, Math.PI * 2);
   ctx.fill();
@@ -183,24 +268,24 @@ function drawRadar(ctx: Ctx, cx: number, cy: number, r: number) {
 /** 深色科技底：渐变 + 网格 + 光晕 + 星点 + 角标 + 暗角 */
 function drawBackground(ctx: Ctx, w: number, h: number) {
   const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#070b16');
-  g.addColorStop(0.55, '#0a1020');
-  g.addColorStop(1, '#0d0a1c');
+  g.addColorStop(0, T.bg[0]);
+  g.addColorStop(0.55, T.bg[1]);
+  g.addColorStop(1, T.bg[2]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
 
   const glow1 = ctx.createRadialGradient(w * 0.5, -h * 0.12, 0, w * 0.5, -h * 0.12, h * 0.75);
-  glow1.addColorStop(0, 'rgba(34,211,238,0.22)');
-  glow1.addColorStop(1, 'rgba(34,211,238,0)');
+  glow1.addColorStop(0, tint(T.accent, 0.22));
+  glow1.addColorStop(1, tint(T.accent, 0));
   ctx.fillStyle = glow1;
   ctx.fillRect(0, 0, w, h);
   const glow2 = ctx.createRadialGradient(w * 0.94, h * 1.04, 0, w * 0.94, h * 1.04, h * 0.6);
-  glow2.addColorStop(0, 'rgba(244,63,142,0.17)');
-  glow2.addColorStop(1, 'rgba(244,63,142,0)');
+  glow2.addColorStop(0, tint(T.accent2, 0.17));
+  glow2.addColorStop(1, tint(T.accent2, 0));
   ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, w, h);
 
-  ctx.strokeStyle = 'rgba(56,189,248,0.05)';
+  ctx.strokeStyle = tint(T.soft, 0.05);
   ctx.lineWidth = 1;
   const step = Math.round(Math.min(w, h) / 22);
   for (let x = step; x < w; x += step) {
@@ -220,9 +305,9 @@ function drawBackground(ctx: Ctx, w: number, h: number) {
 
   // 顶部斜向光束
   const beam = ctx.createLinearGradient(w * 0.15, 0, w * 0.55, h * 0.5);
-  beam.addColorStop(0, 'rgba(34,211,238,0)');
-  beam.addColorStop(0.5, 'rgba(34,211,238,0.07)');
-  beam.addColorStop(1, 'rgba(34,211,238,0)');
+  beam.addColorStop(0, tint(T.accent, 0));
+  beam.addColorStop(0.5, tint(T.accent, 0.07));
+  beam.addColorStop(1, tint(T.accent, 0));
   ctx.fillStyle = beam;
   ctx.beginPath();
   ctx.moveTo(w * 0.18, 0);
@@ -240,7 +325,7 @@ function drawBackground(ctx: Ctx, w: number, h: number) {
   ctx.fillRect(0, 0, w, h);
 
   // 四角角标
-  ctx.strokeStyle = 'rgba(34,211,238,0.55)';
+  ctx.strokeStyle = tint(T.accent, 0.55);
   ctx.lineWidth = 3;
   const c = Math.round(Math.min(w, h) * 0.035);
   const m = Math.round(c * 0.7);
@@ -269,61 +354,61 @@ function drawLive(ctx: Ctx, right: number, y: number, scale = 1) {
   const chipH = 40 * scale;
   const x = right - chipW;
   roundRect(ctx, x, y - chipH / 2, chipW, chipH, chipH / 2);
-  ctx.fillStyle = 'rgba(244,63,142,0.1)';
+  ctx.fillStyle = tint(T.accent2, 0.1);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(244,63,142,0.55)';
+  ctx.strokeStyle = tint(T.accent2, 0.55);
   ctx.lineWidth = 2;
   ctx.stroke();
   const pulse = ctx.createRadialGradient(x + 26 * scale, y, 0, x + 26 * scale, y, 16 * scale);
-  pulse.addColorStop(0, 'rgba(244,63,142,0.7)');
-  pulse.addColorStop(1, 'rgba(244,63,142,0)');
+  pulse.addColorStop(0, tint(T.accent2, 0.7));
+  pulse.addColorStop(1, tint(T.accent2, 0));
   ctx.fillStyle = pulse;
   ctx.beginPath();
   ctx.arc(x + 26 * scale, y, 16 * scale, 0, Math.PI * 2);
   ctx.fill();
-  ctx.fillStyle = PINK;
+  ctx.fillStyle = T.accent2;
   ctx.beginPath();
   ctx.arc(x + 26 * scale, y, 6 * scale, 0, Math.PI * 2);
   ctx.fill();
   text(ctx, label, x + 40 * scale, y, {
     f: font(700, Math.round(20 * scale), MONO),
-    color: '#ff8ab5',
+    color: tint(T.accent2, 0.72),
     baseline: 'middle',
   });
   ctx.restore();
 }
 
 /** 顶部品牌栏：品牌字 + 中文副名 + LIVE + 日期 chip */
-function drawBrand(ctx: Ctx, w: number, pad: number, top: number, dateLabel: string) {
+function drawBrand(ctx: Ctx, w: number, pad: number, top: number, dateLabel: string, inset = 0) {
   const brandSize = Math.round(pad * 0.42);
   text(ctx, 'REDSKILL TRENDS', pad, top, {
     f: font(900, brandSize, DISP),
-    color: CYAN,
+    color: T.accent,
     glow: 16,
-    glowColor: 'rgba(34,211,238,0.8)',
+    glowColor: tint(T.accent, 0.8),
   });
   text(ctx, '小红书榜单趋势', pad, top + pad * 0.55, {
     f: font(700, Math.round(pad * 0.34)),
-    color: MUTED,
+    color: T.muted,
   });
-  drawLive(ctx, w - pad, top - brandSize * 0.32, pad / 64);
+  drawLive(ctx, w - pad - inset, top - brandSize * 0.32, pad / 64);
   // 日期 chip
   ctx.save();
   ctx.font = font(600, Math.round(pad * 0.3), MONO);
   const tw = ctx.measureText(dateLabel).width;
   const chipW = tw + pad * 0.5;
   const chipH = pad * 0.5;
-  const cx = w - pad - chipW;
+  const cx = w - pad - chipW - inset;
   const cy = top + pad * 0.28;
   roundRect(ctx, cx, cy, chipW, chipH, chipH / 2);
-  ctx.strokeStyle = 'rgba(34,211,238,0.5)';
+  ctx.strokeStyle = tint(T.accent, 0.5);
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = 'rgba(34,211,238,0.08)';
+  ctx.fillStyle = tint(T.accent, 0.08);
   ctx.fill();
   text(ctx, dateLabel, cx + chipW / 2, cy + chipH / 2, {
     f: font(600, Math.round(pad * 0.3), MONO),
-    color: CYAN,
+    color: T.accent,
     align: 'center',
     baseline: 'middle',
   });
@@ -331,7 +416,7 @@ function drawBrand(ctx: Ctx, w: number, pad: number, top: number, dateLabel: str
 }
 
 /** mono 数据跑马灯条 */
-function drawTicker(ctx: Ctx, w: number, y: number, pad: number, items: [string, string][], accent = CYAN) {
+function drawTicker(ctx: Ctx, w: number, y: number, pad: number, items: [string, string][], accent = T.accent) {
   ctx.save();
   ctx.font = font(600, Math.round(pad * 0.27), MONO);
   const gap = 36;
@@ -341,7 +426,7 @@ function drawTicker(ctx: Ctx, w: number, y: number, pad: number, items: [string,
   const widths = segs.map((s) => ctx.measureText(s).width);
   widths.forEach((wd) => (totalW += wd + gap * 2));
   const x0 = (w - totalW) / 2;
-  ctx.strokeStyle = 'rgba(56,189,248,0.25)';
+  ctx.strokeStyle = tint(T.soft, 0.25);
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(pad, y);
@@ -354,10 +439,10 @@ function drawTicker(ctx: Ctx, w: number, y: number, pad: number, items: [string,
     const isNum = i % 2 === 1;
     text(ctx, s, x + gap, y, {
       f: font(600, Math.round(pad * 0.27), MONO),
-      color: isNum ? accent : MUTED,
+      color: isNum ? accent : T.muted,
       baseline: 'middle',
       glow: isNum ? 10 : 0,
-      glowColor: 'rgba(34,211,238,0.6)',
+      glowColor: tint(T.accent, 0.6),
     });
     x += widths[i] + gap * 2;
   });
@@ -367,19 +452,19 @@ function drawTicker(ctx: Ctx, w: number, y: number, pad: number, items: [string,
 /** 底部来源栏 */
 function drawFooter(ctx: Ctx, w: number, h: number, pad: number, generatedAt: string) {
   const y = h - pad * 0.9;
-  ctx.strokeStyle = 'rgba(56,189,248,0.25)';
+  ctx.strokeStyle = tint(T.soft, 0.25);
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(pad, y - pad * 0.55);
   ctx.lineTo(w - pad, y - pad * 0.55);
   ctx.stroke();
-  text(ctx, '数据源：小红书 Builder Hub · REDSkill 官方排行榜', pad, y, {
+  text(ctx, 'REDSKILL TRENDS · 每日追踪', pad, y, {
     f: font(500, Math.round(pad * 0.28)),
-    color: MUTED,
+    color: T.muted,
   });
   text(ctx, `生成于 ${generatedAt}`, w - pad, y, {
     f: font(400, Math.round(pad * 0.26), MONO),
-    color: 'rgba(143,160,192,0.75)',
+    color: tint(T.muted, 0.75),
     align: 'right',
   });
 }
@@ -394,7 +479,7 @@ function drawMetric(
   label: string,
   value: string,
   sub: string,
-  accent = CYAN,
+  accent = T.accent,
   spark?: number[]
 ) {
   roundRect(ctx, x, y, w, h, 18);
@@ -403,7 +488,7 @@ function drawMetric(
   g.addColorStop(1, 'rgba(13,19,34,0.9)');
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(56,189,248,0.28)';
+  ctx.strokeStyle = tint(T.soft, 0.28);
   ctx.lineWidth = 2;
   ctx.stroke();
   // 左霓虹条
@@ -419,17 +504,17 @@ function drawMetric(
     drawSparkline(ctx, x + w - 190, y + 22, 150, h - 44, spark, accent);
   }
   const vw = spark ? w - padX - 210 : w - padX - 30;
-  text(ctx, label, x + padX, y + h * 0.3, { f: font(500, Math.round(h * 0.17)), color: MUTED });
+  text(ctx, label, x + padX, y + h * 0.3, { f: font(500, Math.round(h * 0.17)), color: T.muted });
   text(ctx, value, x + padX, y + h * 0.62, {
     f: font(800, Math.round(h * 0.32), MONO),
     color: accent,
     glow: 18,
-    glowColor: 'rgba(34,211,238,0.5)',
+    glowColor: tint(T.accent, 0.5),
     maxWidth: vw,
   });
   text(ctx, sub, x + padX, y + h * 0.86, {
     f: font(400, Math.round(h * 0.13), MONO),
-    color: 'rgba(143,160,192,0.85)',
+    color: tint(T.muted, 0.85),
   });
 }
 
@@ -452,8 +537,8 @@ function drawSparkline(ctx: Ctx, x: number, y: number, w: number, h: number, val
   ctx.lineTo(pts[0][0], y + h);
   ctx.closePath();
   const fill = ctx.createLinearGradient(0, y, 0, y + h);
-  fill.addColorStop(0, 'rgba(34,211,238,0.3)');
-  fill.addColorStop(1, 'rgba(34,211,238,0)');
+  fill.addColorStop(0, tint(T.accent, 0.3));
+  fill.addColorStop(1, tint(T.accent, 0));
   ctx.fillStyle = fill;
   ctx.fill();
   // 线
@@ -502,16 +587,16 @@ function drawChartPanel(
   g.addColorStop(1, 'rgba(10,15,28,0.85)');
   ctx.fillStyle = g;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(56,189,248,0.3)';
+  ctx.strokeStyle = tint(T.soft, 0.3);
   ctx.lineWidth = 2;
   ctx.stroke();
   text(ctx, '收录量曲线 · TOTAL SKILLS', x + 26, y + 36, {
     f: font(700, 22),
-    color: MUTED,
+    color: T.muted,
   });
   text(ctx, 'DAILY SNAPSHOT', x + w - 26, y + 36, {
     f: font(600, 18, MONO),
-    color: 'rgba(34,211,238,0.7)',
+    color: tint(T.accent, 0.7),
     align: 'right',
   });
 
@@ -524,7 +609,7 @@ function drawChartPanel(
   const max = Math.max(...totals);
 
   // 横向网格线
-  ctx.strokeStyle = 'rgba(56,189,248,0.08)';
+  ctx.strokeStyle = tint(T.soft, 0.08);
   ctx.lineWidth = 1;
   for (let i = 0; i <= 3; i++) {
     const gy = py + (ph * i) / 3;
@@ -552,7 +637,7 @@ function drawChartPanel(
       const bx = px + (i / (series.length - 1)) * pw - bw / 2;
       const bh = Math.min(barZone, (s.newSinceLast / max) * barZone + 4);
       roundRect(ctx, bx, barBase - bh, bw, bh, 3);
-      ctx.fillStyle = 'rgba(244,63,142,0.75)';
+      ctx.fillStyle = tint(T.accent2, 0.75);
       ctx.fill();
     });
 
@@ -563,8 +648,8 @@ function drawChartPanel(
     ctx.lineTo(pts[0][0], py + ph);
     ctx.closePath();
     const fill = ctx.createLinearGradient(0, py, 0, py + ph);
-    fill.addColorStop(0, 'rgba(34,211,238,0.32)');
-    fill.addColorStop(1, 'rgba(34,211,238,0)');
+    fill.addColorStop(0, tint(T.accent, 0.32));
+    fill.addColorStop(1, tint(T.accent, 0));
     ctx.fillStyle = fill;
     ctx.fill();
 
@@ -578,9 +663,9 @@ function drawChartPanel(
       ctx.quadraticCurveTo(x0, y0, mx, (y0 + y1) / 2);
     }
     ctx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]);
-    ctx.strokeStyle = CYAN;
+    ctx.strokeStyle = T.accent;
     ctx.lineWidth = 4;
-    ctx.shadowColor = 'rgba(34,211,238,0.7)';
+    ctx.shadowColor = tint(T.accent, 0.7);
     ctx.shadowBlur = 14;
     ctx.stroke();
     ctx.shadowBlur = 0;
@@ -592,7 +677,7 @@ function drawChartPanel(
       ctx.beginPath();
       ctx.arc(tx, ty, last ? 7 : 4.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = CYAN;
+      ctx.strokeStyle = T.accent;
       ctx.lineWidth = 2.5;
       ctx.stroke();
     });
@@ -601,24 +686,24 @@ function drawChartPanel(
     const [lx, ly] = pts[pts.length - 1];
     text(ctx, fmt(totals[totals.length - 1]), lx, ly - 18, {
       f: font(800, 30, MONO),
-      color: INK,
+      color: T.ink,
       align: lx > px + pw - 80 ? 'right' : 'center',
       glow: 12,
-      glowColor: 'rgba(34,211,238,0.7)',
+      glowColor: tint(T.accent, 0.7),
     });
 
     // x 轴日期
-    text(ctx, series[0].date, px, py + ph + 26, { f: font(400, 18, MONO), color: MUTED });
+    text(ctx, series[0].date, px, py + ph + 26, { f: font(400, 18, MONO), color: T.muted });
     text(ctx, series[series.length - 1].date, px + pw, py + ph + 26, {
       f: font(400, 18, MONO),
-      color: MUTED,
+      color: T.muted,
       align: 'right',
     });
   } else {
     // 单快照：基线 + 当前值 + 提示
     const baseY = py + ph * 0.72;
     ctx.setLineDash([8, 8]);
-    ctx.strokeStyle = 'rgba(34,211,238,0.5)';
+    ctx.strokeStyle = tint(T.accent, 0.5);
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.moveTo(px, baseY);
@@ -629,19 +714,19 @@ function drawChartPanel(
     ctx.beginPath();
     ctx.arc(px + pw * 0.5, baseY, 7, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = CYAN;
+    ctx.strokeStyle = T.accent;
     ctx.lineWidth = 3;
     ctx.stroke();
     text(ctx, fmt(totals[0]), px + pw * 0.5, baseY - 26, {
       f: font(800, 44, MONO),
-      color: INK,
+      color: T.ink,
       align: 'center',
       glow: 16,
-      glowColor: 'rgba(34,211,238,0.7)',
+      glowColor: tint(T.accent, 0.7),
     });
     text(ctx, `当前快照 ${series[0].date} · 累积多份快照后展示趋势曲线`, px + pw * 0.5, baseY + 44, {
       f: font(500, 22),
-      color: MUTED,
+      color: T.muted,
       align: 'center',
     });
   }
@@ -654,12 +739,15 @@ function drawTrend(
   w: number,
   h: number,
   pad: number,
-  overview: Overview
+  overview: Overview,
+  reserve = 0,
+  qrInset = 0
 ) {
   const { latest, series } = overview;
   const isWide = w > h;
   const top = pad * 1.5;
-  drawRadar(ctx, w - pad * 1.2, pad * 1.1, Math.min(w, h) * 0.09);
+  // 右上角被二维码占用时跳过雷达装饰
+  if (qrInset === 0) drawRadar(ctx, w - pad * 1.2, pad * 1.1, Math.min(w, h) * 0.09);
   drawBrand(ctx, w, pad, top, `DATA ${latest.date}`);
 
   const tickerY = top + pad * 1.15;
@@ -673,16 +761,16 @@ function drawTrend(
   const titleY = tickerY + pad * 1.35;
   text(ctx, '收录量趋势总览', pad, titleY, {
     f: font(900, isWide ? 84 : 76),
-    color: INK,
+    color: T.ink,
     glow: 12,
-    glowColor: 'rgba(242,247,255,0.35)',
+    glowColor: tint(T.ink, 0.35),
     maxWidth: isWide ? w * 0.44 : w - pad * 2,
   });
   text(ctx, 'XIAOHONGSHU REDSKILL DAILY SNAPSHOT', pad, titleY + 52, {
     f: font(600, 22, MONO),
-    color: CYAN,
+    color: T.accent,
     glow: 8,
-    glowColor: 'rgba(34,211,238,0.5)',
+    glowColor: tint(T.accent, 0.5),
   });
 
   const sparkTotals = series.map((p) => p.total);
@@ -692,7 +780,7 @@ function drawTrend(
     const mw = w * 0.4 - pad * 1.2;
     const mh = 168;
     let y = titleY + 96;
-    drawMetric(ctx, pad, y, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, CYAN, sparkTotals);
+    drawMetric(ctx, pad, y, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, T.accent, sparkTotals);
     y += mh + 22;
     drawMetric(
       ctx,
@@ -703,21 +791,21 @@ function drawTrend(
       '较上次采集新增',
       latest.newSinceLast === null ? '—' : `+${fmt(latest.newSinceLast)}`,
       overview.prevDate ? `对比 ${overview.prevDate}` : '首份快照',
-      PINK,
+      T.accent2,
       sparkNews
     );
     y += mh + 22;
-    drawMetric(ctx, pad, y, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档 · GIT TRACKED', GOLD);
+    drawMetric(ctx, pad, y, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档 · GIT TRACKED', T.gold);
     if (isWide) {
       const ix = w * 0.42;
-      drawChartPanel(ctx, ix, titleY + 90, w - ix - pad, h - titleY - 90 - pad * 1.9, series);
+      drawChartPanel(ctx, ix, titleY + 90, w - ix - pad, h - titleY - 90 - pad * 1.9 - reserve, series);
     }
   } else {
     const mw = (w - pad * 2 - 24) / 3;
     const mh = mw * 0.62;
     let x = pad;
     const my = titleY + 96;
-    drawMetric(ctx, x, my, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, CYAN, sparkTotals);
+    drawMetric(ctx, x, my, mw, mh, '总收录量', fmt(latest.total), `截至 ${latest.date}`, T.accent, sparkTotals);
     x += mw + 24;
     drawMetric(
       ctx,
@@ -728,12 +816,12 @@ function drawTrend(
       '近次新增',
       latest.newSinceLast === null ? '—' : `+${fmt(latest.newSinceLast)}`,
       overview.prevDate ? `对比 ${overview.prevDate}` : '首份快照',
-      PINK,
+      T.accent2,
       sparkNews
     );
     x += mw + 24;
-    drawMetric(ctx, x, my, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档', GOLD);
-    drawChartPanel(ctx, pad, my + mh + 30, w - pad * 2, h - (my + mh + 30) - pad * 1.9, series);
+    drawMetric(ctx, x, my, mw, mh, '快照覆盖', `${series.length} 份`, '日度存档', T.gold);
+    drawChartPanel(ctx, pad, my + mh + 30, w - pad * 2, h - (my + mh + 30) - pad * 1.9 - reserve, series);
   }
 }
 
@@ -743,7 +831,9 @@ function drawSkill(
   h: number,
   pad: number,
   row: RankRow,
-  lists: { key: RankListKey; rows: RankRow[] }[]
+  lists: { key: RankListKey; rows: RankRow[] }[],
+  reserve = 0,
+  qrInset = 0
 ) {
   const isWide = w > h;
   const top = pad * 1.5;
@@ -751,33 +841,33 @@ function drawSkill(
   const mainRank = lists.map((l) => l.rows.find((x) => String(x.skill_id) === String(row.skill_id))?.rank).find(Boolean);
   ctx.save();
   ctx.font = font(900, Math.min(w, h) * 0.42, MONO);
-  ctx.fillStyle = 'rgba(34,211,238,0.055)';
+  ctx.fillStyle = tint(T.accent, 0.055);
   ctx.textAlign = 'right';
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(`#${mainRank ?? row.rank}`, w - pad * 0.4, h - pad * 1.2);
   ctx.restore();
 
-  drawBrand(ctx, w, pad, top, `SKILL #${row.skill_id ?? row.rank}`);
+  drawBrand(ctx, w, pad, top, `SKILL #${row.skill_id ?? row.rank}`, qrInset);
 
   const titleY = top + pad * 1.55;
   drawTicker(ctx, w, titleY - pad * 0.5, pad, [
     ['SKILL', 'PROFILE'],
     ['ID', String(row.skill_id ?? '—')],
     ['AUTHOR', String(row.nickname ?? '—').slice(0, 12)],
-  ], PINK);
+  ], T.accent2);
 
   text(ctx, '技能档案 · SKILL PROFILE', pad, titleY + pad * 0.5, {
     f: font(700, 26),
-    color: PINK,
+    color: T.accent2,
     glow: 10,
-    glowColor: 'rgba(244,63,142,0.6)',
+    glowColor: tint(T.accent2, 0.6),
   });
   text(ctx, String(row.skill_name ?? '—'), pad, titleY + pad * 0.5 + 74, {
     f: font(900, isWide ? 82 : 74),
-    color: INK,
+    color: T.ink,
     maxWidth: isWide ? w * 0.52 : w - pad * 2,
     glow: 12,
-    glowColor: 'rgba(242,247,255,0.3)',
+    glowColor: tint(T.ink, 0.3),
   });
 
   // 描述面板
@@ -792,26 +882,29 @@ function drawSkill(
     roundRect(ctx, pad, py, isWide ? w * 0.46 : w - pad * 2, panelH, 16);
     ctx.fillStyle = 'rgba(23,33,56,0.65)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(56,189,248,0.2)';
+    ctx.strokeStyle = tint(T.soft, 0.2);
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = PINK;
+    ctx.fillStyle = T.accent2;
     roundRect(ctx, pad + 16, py + 22, 5, panelH - 44, 3);
     ctx.fill();
     lines.forEach((ln, i) => {
       text(ctx, ln, pad + 44, py + 52 + i * 44, {
         f: font(400, 27),
-        color: 'rgba(207,224,255,0.9)',
+        color: tint(T.softInk, 0.9),
       });
     });
     descBottom = py + panelH;
   }
 
-  // 四榜固定行：上榜显示数据 + 比例条（相对该榜 TOP1）；未上榜显示暗行占位
+  // 榜单行：按所选榜单数量自适应高度；上榜显示数据 + 比例条（相对该榜 TOP1）；未上榜显示暗行占位
+  // 一个榜都不选时不渲染行区块，给标题/简介留白
+  if (lists.length === 0) return;
   const rowsTop = Math.max(descBottom + 34, titleY + pad * 1.2);
-  const availH = h - rowsTop - pad * 1.9;
-  const step = availH / 4;
-  const rowH = Math.max(54, Math.min(96, step - 18));
+  const availH = h - rowsTop - pad * 1.9 - reserve;
+  const n = Math.max(1, Math.min(4, lists.length));
+  const step = availH / n;
+  const rowH = Math.max(54, Math.min(n <= 2 ? 110 : 96, step - 18));
   const rw = isWide ? w * 0.5 : w - pad * 2;
   const rx = isWide ? w - rw - pad : pad;
   lists.forEach((l, li) => {
@@ -823,19 +916,19 @@ function drawSkill(
     g.addColorStop(1, 'rgba(13,19,34,0.85)');
     ctx.fillStyle = g;
     ctx.fill();
-    ctx.strokeStyle = r ? 'rgba(56,189,248,0.24)' : 'rgba(56,189,248,0.1)';
+    ctx.strokeStyle = r ? tint(T.soft, 0.24) : tint(T.soft, 0.1);
     ctx.lineWidth = 1.5;
     ctx.stroke();
     const cy = y + rowH / 2;
     if (!r) {
       text(ctx, LIST_LABELS[l.key], rx + 24, cy, {
         f: font(700, Math.round(rowH * 0.24)),
-        color: 'rgba(143,160,192,0.65)',
+        color: tint(T.muted, 0.65),
         baseline: 'middle',
       });
       text(ctx, '未上榜', rx + rw - 24, cy, {
         f: font(500, Math.round(rowH * 0.22)),
-        color: 'rgba(143,160,192,0.45)',
+        color: tint(T.muted, 0.45),
         align: 'right',
         baseline: 'middle',
       });
@@ -845,14 +938,14 @@ function drawSkill(
     const topVal = Math.max(listOf(l.rows[0] ?? r, l.key), 1);
     text(ctx, '#' + r.rank, rx + 24, cy, {
       f: font(800, Math.round(rowH * 0.4), MONO),
-      color: r.rank <= 3 ? GOLD : CYAN,
+      color: r.rank <= 3 ? T.gold : T.accent,
       baseline: 'middle',
       glow: r.rank <= 3 ? 14 : 0,
-      glowColor: 'rgba(255,209,102,0.6)',
+      glowColor: tint(T.gold, 0.6),
     });
     text(ctx, LIST_LABELS[l.key], rx + 110, cy - rowH * 0.16, {
       f: font(700, Math.round(rowH * 0.26)),
-      color: INK,
+      color: T.ink,
       baseline: 'middle',
     });
     const barY = cy + rowH * 0.14;
@@ -860,22 +953,22 @@ function drawSkill(
     const bx = rx + 110;
     if (barW > 60) {
       roundRect(ctx, bx, barY, barW, 8, 4);
-      ctx.fillStyle = 'rgba(56,189,248,0.12)';
+      ctx.fillStyle = tint(T.soft, 0.12);
       ctx.fill();
       const frac = Math.max(0.06, Math.min(1, value / topVal));
       roundRect(ctx, bx, barY, barW * frac, 8, 4);
       const bg = ctx.createLinearGradient(bx, 0, bx + barW, 0);
-      bg.addColorStop(0, 'rgba(34,211,238,0.9)');
-      bg.addColorStop(1, 'rgba(244,63,142,0.9)');
+      bg.addColorStop(0, tint(T.accent, 0.9));
+      bg.addColorStop(1, tint(T.accent2, 0.9));
       ctx.fillStyle = bg;
-      ctx.shadowColor = 'rgba(34,211,238,0.7)';
+      ctx.shadowColor = tint(T.accent, 0.7);
       ctx.shadowBlur = 10;
       ctx.fill();
       ctx.shadowBlur = 0;
     }
     text(ctx, valueLabel(r, l.key), rx + rw - 24, cy, {
       f: font(600, Math.round(rowH * 0.24), MONO),
-      color: 'rgba(207,224,255,0.92)',
+      color: tint(T.softInk, 0.92),
       align: 'right',
       baseline: 'middle',
     });
@@ -905,11 +998,13 @@ function drawList(
   pad: number,
   listKey: RankListKey,
   rows: RankRow[],
-  dateLabel: string
+  dateLabel: string,
+  _reserve = 0,
+  qrInset = 0
 ) {
   const isWide = w > h;
   const top = pad * 1.5;
-  drawBrand(ctx, w, pad, top, `TOP ${Math.min(10, rows.length)} · ${dateLabel}`);
+  drawBrand(ctx, w, pad, top, `TOP ${Math.min(10, rows.length)} · ${dateLabel}`, qrInset);
 
   const titleY = top + pad * 1.55;
   drawTicker(ctx, w, titleY - pad * 0.5, pad, [
@@ -920,15 +1015,15 @@ function drawList(
 
   text(ctx, LIST_LABELS[listKey], pad, titleY + pad * 0.85, {
     f: font(900, isWide ? 84 : 76),
-    color: INK,
+    color: T.ink,
     glow: 12,
-    glowColor: 'rgba(242,247,255,0.35)',
+    glowColor: tint(T.ink, 0.35),
   });
   text(ctx, `REDSKILL ${LIST_EN[listKey]}`, pad, titleY + pad * 0.85 + 50, {
     f: font(600, 22, MONO),
-    color: CYAN,
+    color: T.accent,
     glow: 8,
-    glowColor: 'rgba(34,211,238,0.5)',
+    glowColor: tint(T.accent, 0.5),
   });
 
   const top10 = rows.slice(0, 10);
@@ -939,10 +1034,10 @@ function drawList(
     roundRect(ctx, x, y, rw, rh, Math.min(16, rh / 3));
     const g = ctx.createLinearGradient(x, y, x + rw, y);
     if (rank === 1) {
-      g.addColorStop(0, 'rgba(255,209,102,0.2)');
+      g.addColorStop(0, tint(T.gold, 0.2));
       g.addColorStop(1, 'rgba(23,33,56,0.8)');
     } else if (rank <= 3) {
-      g.addColorStop(0, 'rgba(34,211,238,0.14)');
+      g.addColorStop(0, tint(T.accent, 0.14));
       g.addColorStop(1, 'rgba(23,33,56,0.8)');
     } else {
       g.addColorStop(0, 'rgba(23,33,56,0.85)');
@@ -951,7 +1046,7 @@ function drawList(
     ctx.fillStyle = g;
     ctx.fill();
     ctx.strokeStyle =
-      rank === 1 ? 'rgba(255,209,102,0.6)' : rank <= 3 ? 'rgba(34,211,238,0.45)' : 'rgba(56,189,248,0.2)';
+      rank === 1 ? tint(T.gold, 0.6) : rank <= 3 ? tint(T.accent, 0.45) : tint(T.soft, 0.2);
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
@@ -962,32 +1057,32 @@ function drawList(
     roundRect(ctx, bx, by, bs, bs, 12);
     const bg2 = ctx.createLinearGradient(bx, by, bx + bs, by + bs);
     if (rank === 1) {
-      bg2.addColorStop(0, 'rgba(255,209,102,0.95)');
+      bg2.addColorStop(0, tint(T.gold, 0.95));
       bg2.addColorStop(1, 'rgba(255,150,60,0.95)');
     } else if (rank === 2) {
       bg2.addColorStop(0, 'rgba(201,214,234,0.9)');
       bg2.addColorStop(1, 'rgba(130,150,180,0.9)');
     } else if (rank === 3) {
-      bg2.addColorStop(0, 'rgba(244,63,142,0.85)');
+      bg2.addColorStop(0, tint(T.accent2, 0.85));
       bg2.addColorStop(1, 'rgba(180,40,100,0.85)');
     } else {
-      bg2.addColorStop(0, 'rgba(34,211,238,0.16)');
-      bg2.addColorStop(1, 'rgba(34,211,238,0.05)');
+      bg2.addColorStop(0, tint(T.accent, 0.16));
+      bg2.addColorStop(1, tint(T.accent, 0.05));
     }
     ctx.fillStyle = bg2;
     ctx.fill();
     if (rank > 3) {
-      ctx.strokeStyle = 'rgba(34,211,238,0.5)';
+      ctx.strokeStyle = tint(T.accent, 0.5);
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
     text(ctx, String(rank).padStart(2, '0'), bx + bs / 2, by + bs / 2, {
       f: font(800, Math.round(bs * 0.42), MONO),
-      color: rank === 1 ? '#241a00' : rank === 2 ? '#101828' : rank === 3 ? '#fff' : CYAN,
+      color: rank === 1 ? '#241a00' : rank === 2 ? '#101828' : rank === 3 ? '#fff' : T.accent,
       align: 'center',
       baseline: 'middle',
       glow: rank <= 3 ? 10 : 0,
-      glowColor: rank === 1 ? 'rgba(255,209,102,0.9)' : 'rgba(34,211,238,0.8)',
+      glowColor: rank === 1 ? tint(T.gold, 0.9) : tint(T.accent, 0.8),
     });
 
     // 名称 + 变化 chip
@@ -1003,12 +1098,12 @@ function drawList(
       displayName += '…';
     }
     const nameCy = y + rh * 0.4;
-    text(ctx, displayName, nameX, nameCy, { f: nameFont, color: INK, baseline: 'middle' });
+    text(ctx, displayName, nameX, nameCy, { f: nameFont, color: T.ink, baseline: 'middle' });
     let chipX = nameX + ctx.measureText(displayName).width + 14;
     if (r.isNew) {
       text(ctx, '新上榜', chipX, nameCy, {
         f: font(700, Math.round(rh * 0.17)),
-        color: PINK,
+        color: T.accent2,
         baseline: 'middle',
       });
     } else if (r.rankDelta !== null && r.rankDelta > 0) {
@@ -1031,15 +1126,15 @@ function drawList(
     const barW = rw - (nameX - x) - 200;
     if (barW > 60) {
       roundRect(ctx, nameX, barY, barW, 7, 3.5);
-      ctx.fillStyle = 'rgba(56,189,248,0.12)';
+      ctx.fillStyle = tint(T.soft, 0.12);
       ctx.fill();
       const frac = Math.max(0.05, Math.min(1, listOf(r, listKey) / maxVal));
       roundRect(ctx, nameX, barY, barW * frac, 7, 3.5);
       const bg3 = ctx.createLinearGradient(nameX, 0, nameX + barW, 0);
-      bg3.addColorStop(0, 'rgba(34,211,238,0.9)');
-      bg3.addColorStop(1, rank === 1 ? 'rgba(255,209,102,0.95)' : 'rgba(244,63,142,0.9)');
+      bg3.addColorStop(0, tint(T.accent, 0.9));
+      bg3.addColorStop(1, rank === 1 ? tint(T.gold, 0.95) : tint(T.accent2, 0.9));
       ctx.fillStyle = bg3;
-      ctx.shadowColor = 'rgba(34,211,238,0.6)';
+      ctx.shadowColor = tint(T.accent, 0.6);
       ctx.shadowBlur = 8;
       ctx.fill();
       ctx.shadowBlur = 0;
@@ -1048,11 +1143,11 @@ function drawList(
     // 数值
     text(ctx, valueLabel(r, listKey), x + rw - 24, nameCy, {
       f: font(700, Math.round(rh * 0.28), MONO),
-      color: rank === 1 ? GOLD : 'rgba(207,224,255,0.95)',
+      color: rank === 1 ? T.gold : tint(T.softInk, 0.95),
       align: 'right',
       baseline: 'middle',
       glow: rank === 1 ? 12 : 0,
-      glowColor: 'rgba(255,209,102,0.6)',
+      glowColor: tint(T.gold, 0.6),
     });
   };
 
@@ -1074,6 +1169,44 @@ function drawList(
   }
 }
 
+/** 顶部右侧二维码卡片：白底 + 主题色描边 + SCAN 标注，不遮挡正文内容 */
+function drawQRChip(ctx: Ctx, w: number, h: number, pad: number, url: string) {
+  let n = 0;
+  let rows: boolean[][] = [];
+  try {
+    const q = encode(url);
+    n = q.size;
+    rows = q.data as unknown as boolean[][];
+  } catch {
+    return; // 非法链接：静默跳过二维码
+  }
+  const box = Math.round(Math.min(w, h) * 0.115);
+  const quiet = Math.round(box * 0.08);
+  const total = box + quiet * 2;
+  const bx = w - pad - total;
+  const by = Math.round(pad * 0.92);
+  roundRect(ctx, bx, by, total, total, 12);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.strokeStyle = tint(T.accent, 0.45);
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  const cell = box / n;
+  ctx.fillStyle = '#0b1220';
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      if (rows[r]?.[c]) {
+        ctx.fillRect(Math.round(bx + quiet + c * cell), Math.round(by + quiet + r * cell), Math.ceil(cell), Math.ceil(cell));
+      }
+    }
+  }
+  text(ctx, 'SCAN · 文章链接', bx + total, by + total + 26, {
+    f: font(600, Math.round(pad * 0.2), MONO),
+    color: tint(T.muted, 0.9),
+    align: 'right',
+  });
+}
+
 export interface CardOptions {
   type: ShareType;
   size: ShareSize;
@@ -1081,11 +1214,18 @@ export interface CardOptions {
   rankings: Rankings;
   listKey: RankListKey;
   skill: RankRow | null;
+  /** 单技能卡：要展示的榜单（默认全部四榜） */
+  skillLists?: RankListKey[];
+  /** 文章链接：非空时在卡片右下角生成二维码 */
+  link?: string;
+  /** 主题 id（默认第一套） */
+  theme?: string;
 }
 
 /** 渲染分享卡片，返回 canvas */
 export async function renderShareCard(opts: CardOptions): Promise<HTMLCanvasElement> {
   await ensureFonts();
+  T = SHARE_THEMES.find((t) => t.id === opts.theme) ?? SHARE_THEMES[0];
   const { w, h } = SHARE_SIZES[opts.size];
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -1095,19 +1235,24 @@ export async function renderShareCard(opts: CardOptions): Promise<HTMLCanvasElem
   const pad = Math.round(Math.min(w, h) * 0.062);
   const generatedAt = new Date().toLocaleString('zh-CN', { hour12: false });
 
+  // 二维码：置于顶部右侧，品牌栏 chip 左移避让
+  const link = opts.link?.trim();
+  const hasQR = !!link && /^https?:\/\//i.test(link);
+  const qrBox = Math.round(Math.min(w, h) * 0.115);
+  const qrTotal = qrBox + Math.round(qrBox * 0.08) * 2;
+  const qrInset = hasQR ? qrTotal + 28 : 0;
+
   if (opts.type === 'trend') {
-    drawTrend(ctx, w, h, pad, opts.overview);
+    drawTrend(ctx, w, h, pad, opts.overview, 0, qrInset);
   } else if (opts.type === 'skill' && opts.skill) {
-    drawSkill(ctx, w, h, pad, opts.skill, [
-      { key: 'todayList', rows: opts.rankings.todayList },
-      { key: 'newList', rows: opts.rankings.newList },
-      { key: 'useList', rows: opts.rankings.useList },
-      { key: 'authorList', rows: opts.rankings.authorList },
-    ]);
+    const sel = (opts.skillLists ?? []).filter((k) => k in LIST_LABELS);
+    const lists = sel.map((key) => ({ key, rows: opts.rankings[key] }));
+    drawSkill(ctx, w, h, pad, opts.skill, lists, 0, qrInset);
   } else {
-    drawList(ctx, w, h, pad, opts.listKey, opts.rankings[opts.listKey], opts.rankings.date);
+    drawList(ctx, w, h, pad, opts.listKey, opts.rankings[opts.listKey], opts.rankings.date, 0, qrInset);
   }
 
+  if (link && hasQR) drawQRChip(ctx, w, h, pad, link);
   drawFooter(ctx, w, h, pad, generatedAt);
   return canvas;
 }

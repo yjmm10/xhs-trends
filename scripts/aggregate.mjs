@@ -11,7 +11,8 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newSkillIds, compareRanks, disappearedIds } from './lib/diff.mjs';
+import { compareRanks, disappearedIds } from './lib/diff.mjs';
+import { loadVibeRulesFromFile, compileVibeRules, classifyVibeApp } from './lib/vibe-categories.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SNAPSHOTS_DIR = join(root, 'data/snapshots');
@@ -60,19 +61,25 @@ function main() {
     `[aggregate] 快照 ${snapshots.length} 份（${snapshots[0].dataDate} → ${latest.dataDate}），prev=${hasPrev ? prev.dataDate : '无'}`
   );
   // ── 总量曲线 ─────────────────────────────────────────────
+  // 兼容 v1 快照（allSkills 全量行）与 v2（total + skillIds）
+  const idsOf = (s) => s.skillIds ?? (s.allSkills ?? []).map((k) => String(k.skill_id));
+  const totalOf = (s) => s.total ?? (s.allSkills?.length ?? 0);
   const series = [];
   for (let i = 0; i < snapshots.length; i++) {
     const s = snapshots[i];
-    const newSinceLast =
-      i === 0 ? null : newSkillIds(snapshots[i - 1].allSkills, s.allSkills).length;
-    series.push({ date: s.dataDate, total: s.allSkills.length, newSinceLast });
+    let newSinceLast = null;
+    if (i > 0) {
+      const prevIds = new Set(idsOf(snapshots[i - 1]));
+      newSinceLast = idsOf(s).filter((id) => !prevIds.has(id)).length;
+    }
+    series.push({ date: s.dataDate, total: totalOf(s), newSinceLast });
   }
   const officialNew7Sum = latest.newList.reduce((sum, item) => sum + (Number(item.new7_cnt) || 0), 0);
 
   // 消失判定（连续 >=3 缺席，需要 >=4 份快照才有意义）
   let disappeared = [];
   if (snapshots.length >= 4) {
-    const idSets = snapshots.map((s) => new Set(s.allSkills.map((k) => String(k.skill_id))));
+    const idSets = snapshots.map((s) => new Set(idsOf(s)));
     disappeared = disappearedIds(idSets, 3);
   }
 
@@ -81,10 +88,11 @@ function main() {
     generatedAt: new Date().toISOString(),
     latestDate: latest.dataDate,
     prevDate: hasPrev ? prev.dataDate : null,
+    genTime: typeof latest.genTime === 'string' ? latest.genTime : '',
     series,
     latest: {
       date: latest.dataDate,
-      total: latest.allSkills.length,
+      total: totalOf(latest),
       newSinceLast: hasPrev ? series[series.length - 1].newSinceLast : null,
       officialNew7Sum,
       todayRankCount: latest.todayList.length,
@@ -105,7 +113,7 @@ function main() {
   aggregateVibe();
 
   console.log(
-    `[aggregate] 完成：total=${latest.allSkills.length} 较上次新增=${hasPrev ? series[series.length - 1].newSinceLast : 'N/A'} 消失(连续3缺席)=${disappeared.length}`
+    `[aggregate] 完成：total=${totalOf(latest)} 较上次新增=${hasPrev ? series[series.length - 1].newSinceLast : 'N/A'} 消失(连续3缺席)=${disappeared.length}`
   );
 }
 
@@ -128,6 +136,23 @@ function vibePool(s) {
   return ids;
 }
 
+const FALLBACK_META = { key: 'other', label: '其他', icon: '✨' };
+
+/**
+ * 给榜单行标注官方类目：
+ * - 官方精选分类命中 → source='official'
+ * - 关键词规则估算 → source='estimate'
+ * - 均未命中 → other / estimate
+ */
+function annotateCategories(list, officialMap, metaByKey, rules, compiled) {
+  return list.map((row) => {
+    const officialKey = officialMap[String(row.app_id)];
+    const key = officialKey ?? classifyVibeApp(rules, row, compiled);
+    const meta = metaByKey.get(key) ?? FALLBACK_META;
+    return { ...row, category: { key: meta.key, label: meta.label, icon: meta.icon, source: officialKey ? 'official' : 'estimate' } };
+  });
+}
+
 function aggregateVibe() {
   const snaps = loadVibeSnapshots();
   if (snaps.length === 0) {
@@ -136,6 +161,8 @@ function aggregateVibe() {
       generatedAt: new Date().toISOString(),
       series: [],
       latest: null,
+      official: null,
+      categoryDistribution: {},
       rankings: null,
     });
     console.log('[aggregate][vibe] 无快照，写出空骨架');
@@ -143,6 +170,30 @@ function aggregateVibe() {
   }
   const latest = snaps[snaps.length - 1];
   const prev = snaps.length >= 2 ? snaps[snaps.length - 2] : null;
+
+  // ── 官方类目标注 ─────────────────────────────
+  const rules = loadVibeRulesFromFile(join(root, 'scripts/lib/vibe-category-rules.json'));
+  const compiled = compileVibeRules(rules);
+  const officialMap = latest.appCategories ?? {};
+  const metaByKey = new Map((latest.categories ?? []).map((c) => [c.key, c]));
+  const annotate = (list) => annotateCategories(list, officialMap, metaByKey, rules, compiled);
+  // 源数据不携带 rank，按榜单顺序补齐（前三名在 UI 上有金银铜徽标）
+  const withRank = (list) => list.map((row, i) => ({ ...row, rank: row.rank ?? i + 1 }));
+  const todayList = withRank(annotate(latest.todayList));
+  const new7List = withRank(annotate(latest.new7List));
+  const useList = withRank(annotate(latest.useList));
+
+  // ── 类目分布（三 app 榜去重后按标注类目计数）────
+  const seen = new Set();
+  const distribution = {};
+  for (const row of [...useList, ...new7List, ...todayList]) {
+    const id = String(row.app_id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const key = row.category.key;
+    distribution[key] = (distribution[key] ?? 0) + 1;
+  }
+
   const series = snaps.map((s, i) => {
     let newSinceLast = null;
     if (i > 0) {
@@ -165,16 +216,28 @@ function aggregateVibe() {
       total: latest.totalApps ?? 0,
       newSinceLast: series[series.length - 1].newSinceLast,
     },
+    // 官方元数据透出（采集时保留，仅最新快照）
+    official: {
+      genTime: typeof latest.genTime === 'string' ? latest.genTime : '',
+      categories: latest.categories ?? [],
+      featured: latest.featured ?? [],
+      linkOverrides: latest.linkOverrides ?? {},
+    },
+    categoryDistribution: distribution,
     rankings: {
       date: latest.dataDate,
       prevDate: prev ? prev.dataDate : null,
-      todayList: compareRanks(prev ? prev.todayList : [], latest.todayList, 'app_id'),
-      new7List: compareRanks(prev ? prev.new7List : [], latest.new7List, 'app_id'),
-      useList: compareRanks(prev ? prev.useList : [], latest.useList, 'app_id'),
-      authorList: compareRanks(prev ? prev.authorList : [], latest.authorList, 'creator'),
+      todayList,
+      new7List,
+      useList,
+      authorList: withRank(compareRanks(prev ? prev.authorList : [], latest.authorList, 'creator')),
     },
   });
-  console.log(`[aggregate][vibe] 快照 ${snaps.length} 份，最新 ${latest.dataDate}，totalApps=${latest.totalApps}`);
+  const officialCount = [...useList, ...new7List, ...todayList].filter((r) => r.category.source === 'official').length;
+  const dedupCount = seen.size;
+  console.log(
+    `[aggregate][vibe] 快照 ${snaps.length} 份，最新 ${latest.dataDate}，totalApps=${latest.totalApps}；类目标注官方命中 ${officialCount}/${dedupCount}，分布 ${JSON.stringify(distribution)}`
+  );
 }
 
 main();

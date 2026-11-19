@@ -39,7 +39,9 @@ export function validateSnapshot(raw) {
       return { ok: false, error: `榜单 ${key} 缺失或非数组` };
     }
   }
-  // 只保留已知字段（宽容官方新增字段，但不带入快照）
+  // 只保留已知字段（宽容官方新增字段，但不带入快照）。
+  // 全量 5 万+ 技能行不落盘：只存 id 集合 + 总量（快照体积从 ~15MB 降到 <1MB），
+  // aggregate 用 id 集合算“较上次新增 / 消失”，用榜单行渲染榜单。
   const snapshot = {
     dataDate: raw.dataDate,
     genTime: typeof raw.genTime === 'string' ? raw.genTime : '',
@@ -47,7 +49,8 @@ export function validateSnapshot(raw) {
     authorList: raw.authorList,
     newList: raw.newList,
     todayList: raw.todayList,
-    allSkills,
+    total: allSkills.length,
+    skillIds: allSkills.map((k) => String(k.skill_id)),
   };
   return { ok: true, snapshot };
 }

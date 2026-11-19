@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Overview, Rankings, RankListKey, RankRow } from '../types';
+import { addShare, removeShare, useShares } from '../lib/localStore';
+import { xhsNoteUrl } from '../lib/vibeCats';
 import {
   LIST_LABELS,
   SHARE_SIZES,
+  SHARE_THEMES,
   copyCanvas,
   downloadCanvas,
   renderShareCard,
@@ -18,11 +21,24 @@ interface Props {
 }
 
 const SIZE_KEYS = Object.keys(SHARE_SIZES) as ShareSize[];
+const ALL_LIST_KEYS = Object.keys(LIST_LABELS) as RankListKey[];
+
+/** 检测技能当前上榜的榜单；一个都没上则默认使用人数榜 */
+function detectLists(r: RankRow | null, rankings: Rankings): RankListKey[] {
+  if (!r) return ['useList'];
+  const hit = ALL_LIST_KEYS.filter((k) =>
+    rankings[k].some((x) => String(x.skill_id) === String(r.skill_id))
+  );
+  return hit.length ? hit : ['useList'];
+}
 
 export default function ShareModal({ open, onClose, overview, rankings }: Props) {
   const [type, setType] = useState<ShareType>('trend');
   const [size, setSize] = useState<ShareSize>('xhs');
-  const [listKey, setListKey] = useState<RankListKey>('todayList');
+  const [listKey, setListKey] = useState<RankListKey>('useList');
+  const [theme, setTheme] = useState(SHARE_THEMES[0].id);
+  const [skillLists, setSkillLists] = useState<RankListKey[]>(['useList']);
+  const [link, setLink] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [skillId, setSkillId] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -70,6 +86,9 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
       overview,
       rankings,
       listKey,
+      theme,
+      skillLists,
+      link,
       skill: type === 'skill' ? selectedSkill : null,
     })
       .then((canvas) => {
@@ -88,15 +107,37 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
     return () => {
       cancelled = true;
     };
-  }, [open, type, size, listKey, skillId, overview, rankings, selectedSkill]);
+  }, [open, type, size, listKey, theme, skillLists, link, skillId, overview, rankings, selectedSkill]);
+
+  const shares = useShares();
 
   if (!open) return null;
+
+  /** 成品图写入本地缓存（JPEG，超出配额自动丢最旧） */
+  const cacheCurrent = () => {
+    const c = canvasRef.current;
+    if (!c) return;
+    try {
+      const typeLabel = type === 'trend' ? '趋势总览' : type === 'skill' ? `技能 ${selectedSkill?.skill_name ?? ''}` : '榜单 TOP10';
+      addShare(`${typeLabel} · ${SHARE_SIZES[size].label} · ${overview.latestDate}`, c.toDataURL('image/jpeg', 0.9));
+    } catch {
+      /* 缓存失败静默降级：不影响下载/复制 */
+    }
+  };
 
   const handleCopy = async () => {
     if (!canvasRef.current) return;
     const ok = await copyCanvas(canvasRef.current);
+    if (ok) cacheCurrent();
     setCopied(ok);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const downloadShare = (dataUrl: string, filename: string) => {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
   };
 
   return (
@@ -116,18 +157,15 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
           <div>
             <label className="field">
               <span>内容类型</span>
-              <div className="seg">
+              <div className="seg inline">
                 <button className={type === 'trend' ? 'active' : ''} onClick={() => setType('trend')}>
                   <span className="t">📈 趋势总览</span>
-                  <span className="d">收录量趋势 + 核心指标</span>
                 </button>
                 <button className={type === 'skill' ? 'active' : ''} onClick={() => setType('skill')}>
                   <span className="t">🎯 单个技能</span>
-                  <span className="d">指定技能的四榜档案</span>
                 </button>
                 <button className={type === 'list' ? 'active' : ''} onClick={() => setType('list')}>
                   <span className="t">🏆 榜单 TOP10</span>
-                  <span className="d">某一榜单前 10 名</span>
                 </button>
               </div>
             </label>
@@ -158,7 +196,19 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 </label>
                 <label className="field">
                   <span>选择技能（{skillOptions.length} 个上榜技能）</span>
-                  <select value={skillId} onChange={(e) => setSkillId(e.target.value)} size={6}>
+                  <select
+                    className="skill-select"
+                    value={skillId}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setSkillId(v);
+                      // 切换技能时：自动勾选其上榜的榜单 + 预填笔记链接
+                      const r = skillOptions.find((x) => String(x.skill_id) === v) ?? null;
+                      setSkillLists(detectLists(r, rankings));
+                      setLink(r?.note_id ? xhsNoteUrl(r.note_id) ?? '' : '');
+                    }}
+                    size={6}
+                  >
                     {filteredSkills.map((r) => (
                       <option key={r.skill_id} value={String(r.skill_id)}>
                         {r.skill_name}
@@ -171,8 +221,65 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                     请从列表中选择一个技能
                   </div>
                 )}
+                {selectedSkill && (
+                  <label className="field">
+                    <span>展示榜单（一般只上 1～2 个榜，可只勾实际上榜的）</span>
+                    <div className="chip-row">
+                      {ALL_LIST_KEYS.map((k) => {
+                        const on = skillLists.includes(k);
+                        return (
+                          <button
+                            key={k}
+                            className={on ? 'chip-toggle active' : 'chip-toggle'}
+                            onClick={() => {
+                              const next = on ? skillLists.filter((x) => x !== k) : [...skillLists, k];
+                              // 允许一个都不选：卡片只展示标题/简介，不渲染榜单行
+                              setSkillLists(next);
+                            }}
+                          >
+                            {on ? '✓ ' : ''}
+                            {LIST_LABELS[k]}
+                            {!rankings[k].some((x) => String(x.skill_id) === String(selectedSkill.skill_id)) &&
+                              ' （未上榜）'}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </label>
+                )}
               </>
             )}
+
+            <label className="field">
+              <span>主题配色（10 款）</span>
+              <div className="theme-row">
+                {SHARE_THEMES.map((t) => (
+                  <button
+                    key={t.id}
+                    title={t.label}
+                    aria-label={t.label}
+                    className={theme === t.id ? 'theme-dot active' : 'theme-dot'}
+                    onClick={() => setTheme(t.id)}
+                  >
+                    <i
+                      style={{
+                        background: `linear-gradient(135deg, ${t.accent}, ${t.accent2})`,
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            </label>
+
+            <label className="field">
+              <span>文章链接（右下角生成二维码，可留空）</span>
+              <input
+                type="url"
+                placeholder="https://www.xiaohongshu.com/explore/…"
+                value={link}
+                onChange={(e) => setLink(e.target.value)}
+              />
+            </label>
 
             <label className="field">
               <span>卡片尺寸（平台）</span>
@@ -180,9 +287,6 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 {SIZE_KEYS.map((k) => (
                   <button key={k} className={size === k ? 'active' : ''} onClick={() => setSize(k)}>
                     <span className="t">{SHARE_SIZES[k].label}</span>
-                    <span className="d">
-                      {SHARE_SIZES[k].w}×{SHARE_SIZES[k].h} · {SHARE_SIZES[k].desc}
-                    </span>
                   </button>
                 ))}
               </div>
@@ -197,13 +301,11 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
               <button
                 className="btn-solid"
                 disabled={busy || !canvasRef.current || (type === 'skill' && !selectedSkill)}
-                onClick={() =>
-                  canvasRef.current &&
-                  downloadCanvas(
-                    canvasRef.current,
-                    `redskill-${type}-${size}-${overview.latestDate}.png`
-                  )
-                }
+                onClick={() => {
+                  if (!canvasRef.current) return;
+                  cacheCurrent();
+                  downloadCanvas(canvasRef.current, `redskill-${type}-${size}-${overview.latestDate}.png`);
+                }}
               >
                 ⬇ 下载 PNG
               </button>
@@ -214,6 +316,27 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                 {busy ? '渲染中…' : `${SHARE_SIZES[size].w}×${SHARE_SIZES[size].h}px · 数据日期 ${overview.latestDate}`}
               </span>
             </div>
+
+            {shares.length > 0 && (
+              <div className="share-cache">
+                <div className="share-cache-head">本地缓存 · 最近 {shares.length} 张（仅存于浏览器）</div>
+                <div className="share-cache-list">
+                  {shares.map((s) => (
+                    <div className="share-cache-item" key={s.id} title={s.label}>
+                      <img src={s.dataUrl} alt={s.label} onClick={() => downloadShare(s.dataUrl, `${s.id}.jpg`)} />
+                      <div className="share-cache-ops">
+                        <button title="下载" onClick={() => downloadShare(s.dataUrl, `${s.id}.jpg`)}>
+                          ⬇
+                        </button>
+                        <button title="删除" onClick={() => removeShare(s.id)}>
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

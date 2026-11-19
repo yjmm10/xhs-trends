@@ -3,6 +3,8 @@ interface MetricCardProps {
   value: string | number;
   hint?: string;
   spark?: (number | null)[];
+  /** 增长徽标：紧跟在主数值后的涨跌 pill */
+  delta?: { text: string; tone: 'up' | 'flat' | 'down' };
 }
 
 /** 迷你趋势线（SVG）：随指标卡展示近几期走势 */
@@ -37,11 +39,14 @@ function Spark({ data }: { data: (number | null)[] }) {
   );
 }
 
-export default function MetricCard({ label, value, hint, spark }: MetricCardProps) {
+export default function MetricCard({ label, value, hint, spark, delta }: MetricCardProps) {
   return (
     <div className="metric">
       <div className="label">{label}</div>
-      <div className="value">{value}</div>
+      <div className="value-row">
+        <span className="value">{value}</span>
+        {delta && <span className={`metric-delta ${delta.tone}`}>{delta.text}</span>}
+      </div>
       {spark && <Spark data={spark} />}
       {hint && <div className="hint">{hint}</div>}
     </div>

@@ -15,11 +15,13 @@ const valid = {
 };
 
 describe('validateSnapshot — 官方 data.json 结构校验', () => {
-  it('合法快照通过并返回规范化对象', () => {
+  it('合法快照通过并返回规范化对象（全量名单降为 id 集合，不携带完整行）', () => {
     const result = validateSnapshot(valid);
     expect(result.ok).toBe(true);
     expect(result.snapshot.dataDate).toBe('2026-11-17');
-    expect(result.snapshot.allSkills.length).toBe(2);
+    expect(result.snapshot.total).toBe(2);
+    expect(result.snapshot.skillIds).toEqual(['1', '2']);
+    expect(result.snapshot.allSkills).toBeUndefined();
   });
 
   it('非对象/数组输入拒绝', () => {
