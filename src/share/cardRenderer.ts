@@ -1325,7 +1325,6 @@ export interface CardOptions {
   listKey: RankListKey;
   skill: RankRow | null;
   /** 单技能卡：要展示的榜单（默认全部四榜） */
-  skillLists?: RankListKey[];
   /** 文章链接：非空时在卡片右下角生成二维码 */
   link?: string;
   /** 主题 id（默认第一套） */
@@ -1357,8 +1356,8 @@ export async function renderShareCard(opts: CardOptions): Promise<HTMLCanvasElem
   if (opts.type === 'trend') {
     drawTrend(ctx, w, h, pad, opts.overview, 0, qrInset);
   } else if (opts.type === 'skill' && opts.skill) {
-    const sel = (opts.skillLists ?? []).filter((k) => k in LIST_LABELS);
-    const lists = sel.map((key) => ({ key, rows: opts.rankings[key] }));
+    // 单技能卡：不勾选，直接呈现全部四榜成绩
+    const lists = ALL_LISTS.map((key) => ({ key, rows: opts.rankings[key] }));
     drawSkill(ctx, w, h, pad, opts.skill, lists, opts.rankings, 0, qrInset);
   } else {
     drawList(ctx, w, h, pad, opts.listKey, opts.rankings[opts.listKey], opts.rankings.date, 0, qrInset);

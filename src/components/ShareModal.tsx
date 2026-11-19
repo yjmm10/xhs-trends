@@ -18,22 +18,10 @@ interface Props {
   rankings: Rankings;
 }
 
-const ALL_LIST_KEYS = Object.keys(LIST_LABELS) as RankListKey[];
-
-/** 检测技能当前上榜的榜单；一个都没上则默认使用人数榜 */
-function detectLists(r: RankRow | null, rankings: Rankings): RankListKey[] {
-  if (!r) return ['useList'];
-  const hit = ALL_LIST_KEYS.filter((k) =>
-    rankings[k].some((x) => String(x.skill_id) === String(r.skill_id))
-  );
-  return hit.length ? hit : ['useList'];
-}
-
 export default function ShareModal({ open, onClose, overview, rankings }: Props) {
   const [type, setType] = useState<ShareType>('trend');
   const [listKey, setListKey] = useState<RankListKey>('useList');
   const [theme, setTheme] = useState(SHARE_THEMES[0].id);
-  const [skillLists, setSkillLists] = useState<RankListKey[]>(['useList']);
   const [link, setLink] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [skillId, setSkillId] = useState<string>('');
@@ -82,7 +70,6 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
       rankings,
       listKey,
       theme,
-      skillLists,
       link,
       skill: type === 'skill' ? selectedSkill : null,
     })
@@ -102,7 +89,7 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
     return () => {
       cancelled = true;
     };
-  }, [open, type, listKey, theme, skillLists, link, skillId, overview, rankings, selectedSkill]);
+  }, [open, type, listKey, theme, link, skillId, overview, rankings, selectedSkill]);
 
   const shares = useShares();
 
@@ -197,9 +184,8 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                     onChange={(e) => {
                       const v = e.target.value;
                       setSkillId(v);
-                      // 切换技能时：自动勾选其上榜的榜单 + 预填笔记链接
+                      // 切换技能时：预填官方挂载笔记链接
                       const r = skillOptions.find((x) => String(x.skill_id) === v) ?? null;
-                      setSkillLists(detectLists(r, rankings));
                       setLink(r?.note_id ? xhsNoteUrl(r.note_id) ?? '' : '');
                     }}
                     size={6}
@@ -215,32 +201,6 @@ export default function ShareModal({ open, onClose, overview, rankings }: Props)
                   <div className="modal-note" style={{ marginBottom: 12 }}>
                     请从列表中选择一个技能
                   </div>
-                )}
-                {selectedSkill && (
-                  <label className="field">
-                    <span>展示榜单（一般只上 1～2 个榜，可只勾实际上榜的）</span>
-                    <div className="chip-row">
-                      {ALL_LIST_KEYS.map((k) => {
-                        const on = skillLists.includes(k);
-                        return (
-                          <button
-                            key={k}
-                            className={on ? 'chip-toggle active' : 'chip-toggle'}
-                            onClick={() => {
-                              const next = on ? skillLists.filter((x) => x !== k) : [...skillLists, k];
-                              // 允许一个都不选：卡片只展示标题/简介，不渲染榜单行
-                              setSkillLists(next);
-                            }}
-                          >
-                            {on ? '✓ ' : ''}
-                            {LIST_LABELS[k]}
-                            {!rankings[k].some((x) => String(x.skill_id) === String(selectedSkill.skill_id)) &&
-                              ' （未上榜）'}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </label>
                 )}
               </>
             )}
