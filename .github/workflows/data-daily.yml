@@ -1,0 +1,64 @@
+# 每日数据采集：定时抓取 SKILL / 小工具官方榜单快照并聚合
+#
+# 数据流：
+#   npm run collect   → data/snapshots/skills-*.json + data/vibe-snapshots/vibe-*.json（按 dataDate 幂等）
+#   npm run aggregate → data/derived/*.json（overview / rankings / vibe）
+#   npm run build     → tsc + vite build（校验派生数据与前端类型假设一致）
+#
+# 采集成功后将 data/ 变更提交回仓库（历史快照即趋势数据库，勿删旧文件）。
+# 用 GITHUB_TOKEN 推送不会触发其他 workflow，无循环风险。
+# 可选配置：Settings → Secrets → Actions 添加 XHS_COOKIE（未配置时以匿名模式采集，小工具榜不受影响）。
+
+name: data-daily
+
+on:
+  schedule:
+    # UTC 01:30 = 北京时间每天 09:30
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-daily
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Collect snapshots
+        env:
+          XHS_COOKIE: ${{ secrets.XHS_COOKIE }}
+          VIBE_TIMEOUT_MS: '180000'
+        run: npm run collect
+
+      - name: Aggregate derived data
+        run: npm run aggregate
+
+      - name: Build check
+        run: npm run build
+
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "数据无变化，跳过提交"
+          else
+            git commit -m "chore(data): daily snapshot $(date -u +%F)"
+            git push
+          fi

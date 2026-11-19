@@ -1,5 +1,4 @@
 node_modules/
 dist/
-data/derived/
 *.log
 .DS_Store
