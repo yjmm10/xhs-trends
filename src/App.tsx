@@ -677,6 +677,10 @@ export default function App() {
               lucas <span className="about-sep">|</span> 独立开发者
             </div>
             <p className="about-line">编译世界，反编译自己。</p>
+            <p className="about-bio">
+              xhs-trends · 小红书生态数据雷达：每日自动追踪 REDSKILL 技能榜与小工具（Vibe）榜，
+              沉淀历史快照，呈现收录量趋势、榜单变化与技能档案，支持一键生成数据分享卡片。
+            </p>
           </div>
         )}
       </div>

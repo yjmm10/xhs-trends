@@ -1746,6 +1746,23 @@ a.cat-item-name:hover {
   letter-spacing: 3px;
   margin: 14px 0 0;
 }
+/* 项目简介：居中窄栏，弱化但可读 */
+.about-bio {
+  max-width: 560px;
+  margin: 22px 0 0;
+  font-size: 14px;
+  line-height: 2;
+  color: rgba(196, 207, 226, 0.78);
+  text-wrap: balance;
+}
+.about-bio::before {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 1px;
+  margin: 0 auto 16px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.6), transparent);
+}
 .snap-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
