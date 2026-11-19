@@ -424,18 +424,14 @@ export default function App() {
               </div>
             </section>
 
+            {favs.length > 0 && (
             <section className="psec">
               <div className="sec-head">
                 <span className="sec-kicker">MY STARS</span>
                 <h2>我的收藏</h2>
               </div>
               <div className="card">
-                {favs.length === 0 ? (
-                  <div className="empty">
-                    还没有收藏 — 在 SKILL / 小工具榜单里点亮 ★，即可保存到这里（仅存于本浏览器）。
-                  </div>
-                ) : (
-                  <ul className="fav-list">
+                <ul className="fav-list">
                     {favs.map((f) => {
                       const url = xhsNoteUrl(f.noteId);
                       return (
@@ -460,26 +456,32 @@ export default function App() {
                       );
                     })}
                   </ul>
-                )}
               </div>
             </section>
+            )}
 
-            <section className="psec">
-              <div className="sec-head">
-                <span className="sec-kicker">GROWTH</span>
-                <h2>收录量趋势</h2>
-              </div>
-              <div className="grid-2">
-                <div className="card">
-                  <h3>SKILL 收录量趋势</h3>
-                  <TrendBlock series={series} />
+            {(series.length >= 2 || vSeries.length >= 2) && (
+              <section className="psec">
+                <div className="sec-head">
+                  <span className="sec-kicker">GROWTH</span>
+                  <h2>收录量趋势</h2>
                 </div>
-                <div className="card">
-                  <h3>小工具收录量趋势</h3>
-                  <TrendBlock series={vSeries} />
+                <div className="grid-2">
+                  {series.length >= 2 && (
+                    <div className="card">
+                      <h3>SKILL 收录量趋势</h3>
+                      <TrendBlock series={series} />
+                    </div>
+                  )}
+                  {vSeries.length >= 2 && (
+                    <div className="card">
+                      <h3>小工具收录量趋势</h3>
+                      <TrendBlock series={vSeries} />
+                    </div>
+                  )}
                 </div>
-              </div>
-            </section>
+              </section>
+            )}
 
 
           </>
@@ -506,10 +508,12 @@ export default function App() {
               </div>
             </div>
 
-            <div className="card">
-              <h3>收录量趋势</h3>
-              <TrendBlock series={series} height={360} />
-            </div>
+            {series.length >= 2 && (
+              <div className="card">
+                <h3>收录量趋势</h3>
+                <TrendBlock series={series} height={360} />
+              </div>
+            )}
 
             <div className="tabs">
               {TABS.map((t) => (
